@@ -1,0 +1,7 @@
+# Core dependencies for IFC reinforcement analysis
+ifcopenshell>=0.8.4
+numpy
+gradio>=4.20
+
+# Optional utilities
+python-dotenv>=1.0.0

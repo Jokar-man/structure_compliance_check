@@ -1,7 +1,20 @@
-import ifcopenshell
+"""
+Extract all wall info from IFC and return:
+list[dict] where each dict contains:
+- identity + type
+- placement + storey
+- quantities + psets (instance + type)
+- materials (incl. layers)
+- canonical fields (Thickness_mm, Height_mm, Length_mm, U_value, FireRating, etc.) + sources
+"""
+
+#import ifcopenshell
 import ifcopenshell.util.pset as pset
+import ifcopenshell.util.element as element
+
 
 QSET_CANDIDATES = ["Qto_WallBaseQuantities", "BaseQuantities", "Dimensions"]
+
 
 def safe_float(x):
     try:
@@ -9,84 +22,160 @@ def safe_float(x):
     except:
         return None
 
+def to_mm(value, length_unit_scale_to_mm=1.0):
+    if value is None:
+        return None
+    try:
+        return float(value) * length_unit_scale_to_mm
+    except:
+        return None
+
+def get_length_scale_to_mm(model):
+    # default: meters -> mm
+    scale = 1000.0
+
+    projects = model.by_type("IfcProject")
+    if not projects or not projects[0].UnitsInContext:
+        return scale
+
+    units = projects[0].UnitsInContext.Units or []
+    for u in units:
+        if u.is_a("IfcSIUnit") and u.UnitType == "LENGTHUNIT":
+            # If Prefix is MILLI, then base unit is mm already
+            if getattr(u, "Prefix", None) == "MILLI":
+                return 1.0
+            return 1000.0
+    return scale
+
 def get_wall_type(wall):
     for rel in getattr(wall, "IsDefinedBy", []) or []:
         if rel.is_a("IfcRelDefinesByType"):
             return rel.RelatingType
     return None
 
+
+def get_container_storey(wall):
+    # IfcRelContainedInSpatialStructure
+    try:
+        container = element.get_container(wall)
+        if container and container.is_a("IfcBuildingStorey"):
+            return {
+                "StoreyName": getattr(container, "Name", None),
+                "StoreyGlobalId": getattr(container, "GlobalId", None),
+                "StoreyElevation": getattr(container, "Elevation", None),
+            }
+    except:
+        pass
+    return {"StoreyName": None, "StoreyGlobalId": None, "StoreyElevation": None}
+
+
 def get_quantities(wall):
     qtos = pset.get_quantities(wall) or {}
-    # return the first available qset dict
     for name in QSET_CANDIDATES:
         if name in qtos:
             return name, qtos[name]
     return None, {}
 
-def wall_thickness_m(wall):
-    # 1) QTO width
-    qname, q = get_quantities(wall)
-    w = safe_float(q.get("Width"))
-    if w is not None:
-        return w, f"QTO:{qname}.Width"
 
-    # 2) Pset common
-    psets = pset.get_psets(wall) or {}
-    for key in ["Thickness", "Width"]:
-        v = safe_float((psets.get("Pset_WallCommon") or {}).get(key))
-        if v is not None:
-            return v, f"PSET:Pset_WallCommon.{key}"
+def extract_material_info(obj):
+    """
+    Returns:
+    {
+      "MaterialName": str|None,
+      "LayerNames": [..],
+      "LayerThicknesses": [..],
+      "TotalLayerThickness": float|None
+    }
+    Works for instance or type (pass wall or walltype).
+    """
+    out = {
+        "MaterialName": None,
+        "LayerNames": [],
+        "LayerThicknesses": [],
+        "TotalLayerThickness": None,
+    }
 
-    # 3) Type layers
-    wtype = get_wall_type(wall)
-    if wtype:
-        for rel in getattr(wtype, "HasAssociations", []) or []:
-            if rel.is_a("IfcRelAssociatesMaterial"):
-                mat = rel.RelatingMaterial
-                if mat and mat.is_a("IfcMaterialLayerSet"):
-                    total = 0.0
-                    for layer in mat.MaterialLayers or []:
-                        if layer.LayerThickness is not None:
-                            total += float(layer.LayerThickness)
-                    if total > 0:
-                        return total, "TYPE:IfcMaterialLayerSet sum(LayerThickness)"
+    try:
+        for rel in getattr(obj, "HasAssociations", []) or []:
+            if not rel.is_a("IfcRelAssociatesMaterial"):
+                continue
 
-                if mat and mat.is_a("IfcMaterialLayerSetUsage"):
-                    ls = mat.ForLayerSet
-                    if ls and ls.is_a("IfcMaterialLayerSet"):
-                        total = 0.0
-                        for layer in ls.MaterialLayers or []:
-                            if layer.LayerThickness is not None:
-                                total += float(layer.LayerThickness)
-                        if total > 0:
-                            return total, "TYPE:IfcMaterialLayerSetUsage sum(LayerThickness)"
-
-    return None, "UNKNOWN"
-
-def wall_material(wall):
-    # instance associations first
-    for rel in getattr(wall, "HasAssociations", []) or []:
-        if rel.is_a("IfcRelAssociatesMaterial"):
             mat = rel.RelatingMaterial
+
+            # Simple IfcMaterial
             if hasattr(mat, "Name") and mat.Name:
-                return mat.Name
+                out["MaterialName"] = mat.Name
+                return out
+
+            # LayerSetUsage (common)
             if mat and mat.is_a("IfcMaterialLayerSetUsage"):
                 ls = mat.ForLayerSet
                 if ls and hasattr(ls, "MaterialLayers"):
-                    names = []
+                    total = 0.0
                     for layer in ls.MaterialLayers or []:
-                        if getattr(layer, "Material", None) and getattr(layer.Material, "Name", None):
-                            names.append(layer.Material.Name)
-                    return ", ".join(names) if names else None
-    # fallback: type associations
-    wtype = get_wall_type(wall)
-    if wtype:
-        for rel in getattr(wtype, "HasAssociations", []) or []:
-            if rel.is_a("IfcRelAssociatesMaterial"):
-                mat = rel.RelatingMaterial
-                if hasattr(mat, "Name") and mat.Name:
-                    return mat.Name
-    return None
+                        name = getattr(getattr(layer, "Material", None), "Name", None)
+                        th = safe_float(getattr(layer, "LayerThickness", None))
+                        if name:
+                            out["LayerNames"].append(name)
+                        if th is not None:
+                            out["LayerThicknesses"].append(th)
+                            total += th
+                    out["TotalLayerThickness"] = total if out["LayerThicknesses"] else None
+                    out["MaterialName"] = ", ".join(out["LayerNames"]) if out["LayerNames"] else None
+                    return out
+
+            # LayerSet (less common, but exists)
+            if mat and mat.is_a("IfcMaterialLayerSet"):
+                total = 0.0
+                for layer in mat.MaterialLayers or []:
+                    name = getattr(getattr(layer, "Material", None), "Name", None)
+                    th = safe_float(getattr(layer, "LayerThickness", None))
+                    if name:
+                        out["LayerNames"].append(name)
+                    if th is not None:
+                        out["LayerThicknesses"].append(th)
+                        total += th
+                out["TotalLayerThickness"] = total if out["LayerThicknesses"] else None
+                out["MaterialName"] = ", ".join(out["LayerNames"]) if out["LayerNames"] else None
+                return out
+
+    except:
+        pass
+
+    return out
+
+
+def pick_thickness_mm(wall, qset_name, q, psets_inst, psets_type, mat_inst, mat_type):
+    # Priority: QTO > instance psets > type psets > material layers (inst > type)
+    # Note: In your IFC sample units are mm, and q.Width=95 is already mm.
+    if q:
+        for key in ["Width", "Thickness"]:
+            v = safe_float(q.get(key))
+            if v is not None:
+                return v, f"QTO:{qset_name}.{key}"
+
+    for pset_name in ["Pset_WallCommon", "Construction", "Dimensions"]:
+        ps = psets_inst.get(pset_name) or {}
+        for key in ["Width", "Thickness"]:
+            v = safe_float(ps.get(key))
+            if v is not None:
+                return v, f"PSET:{pset_name}.{key}"
+
+    for pset_name in ["Pset_WallCommon", "Construction", "Dimensions"]:
+        ps = psets_type.get(pset_name) or {}
+        for key in ["Width", "Thickness"]:
+            v = safe_float(ps.get(key))
+            if v is not None:
+                return v, f"TYPE_PSET:{pset_name}.{key}"
+
+    if mat_inst.get("TotalLayerThickness") is not None:
+        return mat_inst["TotalLayerThickness"], "MAT:Instance LayerThickness sum"
+
+    if mat_type.get("TotalLayerThickness") is not None:
+        return mat_type["TotalLayerThickness"], "MAT:Type LayerThickness sum"
+
+    return None, "NOT_FOUND"
+
 
 def extract_walls(model):
     walls = model.by_type("IfcWall") + model.by_type("IfcWallStandardCase")
@@ -94,42 +183,67 @@ def extract_walls(model):
 
     for w in walls:
         wtype = get_wall_type(w)
-        qname, q = get_quantities(w)
-        thickness, thickness_src = wall_thickness_m(w)
 
-        psets = pset.get_psets(w) or {}
-        common = psets.get("Pset_WallCommon") or {}
+        qset_name, q = get_quantities(w)
+        psets_inst = pset.get_psets(w) or {}
+        psets_type = pset.get_psets(wtype) or {} if wtype else {}
 
-        out.append({
+        mat_inst = extract_material_info(w)
+        mat_type = extract_material_info(wtype) if wtype else {"MaterialName": None, "LayerNames": [], "LayerThicknesses": [], "TotalLayerThickness": None}
+
+        thickness_mm, thickness_src = pick_thickness_mm(w, qset_name, q, psets_inst, psets_type, mat_inst, mat_type)
+
+        wc = psets_inst.get("Pset_WallCommon") or {}
+        storey = get_container_storey(w)
+
+        row = {
+            # identity
             "GlobalId": getattr(w, "GlobalId", None),
             "Name": getattr(w, "Name", None) or "Unnamed Wall",
             "IfcType": w.is_a(),
             "ObjectType": getattr(w, "ObjectType", None),
             "Tag": getattr(w, "Tag", None),
 
-            # quantities
-            "QSet": qname,
-            "Length_m": safe_float(q.get("Length")),
-            "Height_m": safe_float(q.get("Height")),
-            "Area_m2": safe_float(q.get("GrossArea") or q.get("NetArea")),
-            "Volume_m3": safe_float(q.get("GrossVolume") or q.get("NetVolume")),
+            # type
+            "WallTypeName": getattr(wtype, "Name", None) if wtype else None,
+            "WallTypeId": getattr(wtype, "GlobalId", None) if wtype and hasattr(wtype, "GlobalId") else None,
 
-            # thickness
-            "Thickness_m": thickness,
+            # container/storey
+            **storey,
+
+            # quantities (raw + canonical)
+            "QSet": qset_name,
+            "Length_mm": safe_float(q.get("Length")) if q else None,
+            "Height_mm": safe_float(q.get("Height")) if q else None,
+            "Area_m2": safe_float((q.get("GrossArea") or q.get("NetArea"))) if q else None,
+            "Volume_m3": safe_float((q.get("GrossVolume") or q.get("NetVolume"))) if q else None,
+
+            # canonical thickness
+            "Thickness_mm": thickness_mm,
             "ThicknessSource": thickness_src,
 
-            # material + type
-            "Material": wall_material(w) or "N/A",
-            "WallTypeName": getattr(wtype, "Name", None) if wtype else "N/A",
-            "WallTypeId": getattr(wtype, "GlobalId", None) if wtype and hasattr(wtype, "GlobalId") else "N/A",
+            # wall common
+            "IsExternal": wc.get("IsExternal"),
+            "LoadBearing": wc.get("LoadBearing"),
+            "FireRating": wc.get("FireRating"),
+            "ThermalTransmittance": wc.get("ThermalTransmittance"),
 
-            # key pset props
-            "LoadBearing": common.get("LoadBearing"),
-            "IsExternal": common.get("IsExternal"),
-            "FireRating": common.get("FireRating"),
+            # materials (instance + type)
+            "Material_Instance": mat_inst.get("MaterialName"),
+            "Material_Type": mat_type.get("MaterialName"),
+            "Layers_Instance": mat_inst.get("LayerNames"),
+            "LayerThicknesses_Instance": mat_inst.get("LayerThicknesses"),
+            "TotalLayerThickness_Instance": mat_inst.get("TotalLayerThickness"),
+            "Layers_Type": mat_type.get("LayerNames"),
+            "LayerThicknesses_Type": mat_type.get("LayerThicknesses"),
+            "TotalLayerThickness_Type": mat_type.get("TotalLayerThickness"),
 
-            # raw psets for later rules
-            "Psets": psets
-        })
+            # raw for any future rules
+            "Psets_Instance": psets_inst,
+            "Psets_Type": psets_type,
+            "Qtos_All": pset.get_quantities(w) or {},
+        }
+
+        out.append(row)
 
     return out

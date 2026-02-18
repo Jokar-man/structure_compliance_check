@@ -1,6 +1,6 @@
 """
 IFC Reinforcement & Structural Analysis Application
-Analyzes IFC models for ground floor slab and foundation properties
+Analyzes IFC models for ground floor slab, foundation properties, and regulatory compliance.
 """
 
 import sys
@@ -10,210 +10,348 @@ import gradio as gr
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
+# Add tools to path (for checker_foundation following IFCore contract)
+sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 
 from ifc_analyzer import IFCAnalyzer
 from report_generator import ReportGenerator
 
+import ifcopenshell
+from checker_foundation import (
+    check_foundation_slab_thickness,
+    check_foundation_dimensions,
+    check_bearing_beam_section,
+    check_floor_capacity,
+)
+
+
+# ── Foundation compliance rendering helpers ───────────────────────────────────
+
+_BADGE = {
+    "pass":    ("#d1fae5", "#065f46", "#10b981"),
+    "fail":    ("#fee2e2", "#991b1b", "#ef4444"),
+    "warning": ("#fef3c7", "#92400e", "#f59e0b"),
+    "blocked": ("#f3f4f6", "#374151", "#9ca3af"),
+}
+_ICONS = {"pass": "&#10003;", "fail": "&#10007;", "warning": "&#9888;", "blocked": "&#8212;"}
+
+_CHECKS_META = [
+    (check_foundation_slab_thickness, "Art. 69",    "Slab Thickness"),
+    (check_foundation_dimensions,     "Load Check", "Dimensions"),
+    (check_bearing_beam_section,      "DB SE-AE",   "Bearing Beam"),
+    (check_floor_capacity,            "Art. 128",   "Floor Capacity"),
+]
+
+
+def _build_foundation_html(card_data: list, all_rows: list) -> str:
+    """Build 4 summary cards + scrollable detail table."""
+
+    # ── Summary cards ──
+    cards = "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;'>"
+    for label, detail, counts, overall, total in card_data:
+        bg, txt, bdr = _BADGE[overall]
+        badge_label = overall.upper()
+        cards += f"""
+        <div style='background:{bg};border:2px solid {bdr};border-radius:8px;
+                    padding:12px 8px;text-align:center;'>
+          <div style='font-size:10px;color:#6b7280;text-transform:uppercase;
+                      letter-spacing:.5px;margin-bottom:3px;'>{label}</div>
+          <div style='font-size:12px;font-weight:600;color:#1f2937;
+                      margin-bottom:7px;line-height:1.3;'>{detail}</div>
+          <div style='display:inline-block;background:white;color:{txt};
+                      border:1px solid {bdr};border-radius:4px;
+                      padding:2px 10px;font-weight:700;font-size:12px;'>
+            {badge_label}
+          </div>
+          <div style='font-size:10px;color:#6b7280;margin-top:5px;'>
+            {counts.get("pass",0)} pass / {counts.get("fail",0)} fail
+          </div>
+        </div>"""
+    cards += "</div>"
+
+    # ── Detail table ──
+    table = """
+    <div style='border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;
+                max-height:400px;overflow-y:auto;font-size:12px;'>
+      <table style='width:100%;border-collapse:collapse;'>
+        <thead>
+          <tr style='background:#f9fafb;border-bottom:2px solid #e5e7eb;position:sticky;top:0;'>
+            <th style='padding:8px 10px;text-align:left;color:#6b7280;
+                       font-size:11px;text-transform:uppercase;'>Regulation</th>
+            <th style='padding:8px 10px;text-align:left;color:#6b7280;
+                       font-size:11px;text-transform:uppercase;'>Element</th>
+            <th style='padding:8px 10px;text-align:right;color:#6b7280;
+                       font-size:11px;text-transform:uppercase;'>Actual</th>
+            <th style='padding:8px 10px;text-align:right;color:#6b7280;
+                       font-size:11px;text-transform:uppercase;'>Required</th>
+            <th style='padding:8px 10px;text-align:center;color:#6b7280;
+                       font-size:11px;text-transform:uppercase;'>Result</th>
+          </tr>
+        </thead><tbody>"""
+
+    row_bg_map = {
+        "pass":    "rgba(16,185,129,.05)",
+        "fail":    "rgba(239,68,68,.07)",
+        "warning": "rgba(245,158,11,.07)",
+        "blocked": "white",
+    }
+
+    for reg_label, r in all_rows:
+        s = r.get("check_status", "blocked")
+        bg, txt, bdr = _BADGE.get(s, _BADGE["blocked"])
+        icon = _ICONS.get(s, "&#8212;")
+        row_bg = row_bg_map.get(s, "white")
+        elem_name = (r.get("element_name") or "—")[:40]
+        actual   = r.get("actual_value")   or "—"
+        required = r.get("required_value") or "—"
+        comment  = r.get("comment") or ""
+        title    = f'title="{comment}"' if comment else ""
+
+        table += f"""
+          <tr style='background:{row_bg};border-bottom:1px solid #f3f4f6;' {title}>
+            <td style='padding:6px 10px;color:#4b5563;white-space:nowrap;'>{reg_label}</td>
+            <td style='padding:6px 10px;color:#1f2937;font-weight:500;max-width:180px;
+                       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>{elem_name}</td>
+            <td style='padding:6px 10px;text-align:right;font-family:monospace;
+                       color:#374151;white-space:nowrap;'>{actual}</td>
+            <td style='padding:6px 10px;text-align:right;font-family:monospace;
+                       color:#374151;white-space:nowrap;'>{required}</td>
+            <td style='padding:6px 10px;text-align:center;'>
+              <span style='background:{bg};color:{txt};border:1px solid {bdr};
+                           border-radius:4px;padding:2px 7px;font-size:11px;
+                           font-weight:700;white-space:nowrap;'>{icon} {s.upper()}</span>
+            </td>
+          </tr>"""
+
+    table += "</tbody></table></div>"
+
+    disclaimer = """
+    <div style='margin-top:10px;padding:8px 12px;background:#fef9c3;border-left:3px solid #fbbf24;
+                border-radius:4px;font-size:11px;color:#78350f;'>
+      <strong>Note:</strong> Where bearing capacity is missing from the IFC model, a conservative
+      default of 150 kN/m2 is used. Actual geotechnical values must be provided by a qualified
+      engineer per the Metropolitan Building Ordinances.
+    </div>"""
+
+    return cards + table + disclaimer
+
+
+def run_foundation_checks(ifc_file):
+    """Run the 4 regulatory foundation checks and return HTML results + status string."""
+    if ifc_file is None:
+        placeholder = ("<p style='color:#999;text-align:center;padding:40px;'>"
+                       "Upload an IFC file and click Foundation Compliance Check.</p>")
+        return placeholder, "No file uploaded"
+
+    ifc_path = ifc_file if isinstance(ifc_file, str) else ifc_file.name
+    try:
+        model = ifcopenshell.open(ifc_path)
+    except Exception as e:
+        err = (f"<div style='color:#dc2626;padding:20px;background:#fee2e2;"
+               f"border-radius:8px;'><strong>Error opening IFC:</strong> {e}</div>")
+        return err, f"Error: {e}"
+
+    card_data = []
+    all_rows  = []
+
+    for fn, reg_label, detail_label in _CHECKS_META:
+        try:
+            rows = fn(model)
+        except Exception as e:
+            rows = [{
+                "element_id": None, "element_type": "—",
+                "element_name": "Check error",
+                "element_name_long": str(e),
+                "check_status": "blocked",
+                "actual_value": None, "required_value": None,
+                "comment": str(e), "log": None,
+            }]
+
+        all_rows.extend((reg_label, r) for r in rows)
+
+        counts = {}
+        for r in rows:
+            s = r.get("check_status", "blocked")
+            counts[s] = counts.get(s, 0) + 1
+
+        overall = ("fail"    if counts.get("fail", 0) > 0 else
+                   "warning" if counts.get("warning", 0) > 0 else
+                   "blocked" if counts.get("pass", 0) == 0 else
+                   "pass")
+        card_data.append((reg_label, detail_label, counts, overall, len(rows)))
+
+    html = _build_foundation_html(card_data, all_rows)
+
+    n_pass = sum(1 for _, r in all_rows if r.get("check_status") == "pass")
+    n_fail = sum(1 for _, r in all_rows if r.get("check_status") == "fail")
+    n_warn = sum(1 for _, r in all_rows if r.get("check_status") == "warning")
+    status = (f"Foundation compliance: {n_pass} pass, {n_fail} fail, "
+              f"{n_warn} warning across {len(all_rows)} checks")
+    return html, status
+
+
+# ── Existing property-level analysis ─────────────────────────────────────────
 
 def analyze_ifc_model(ifc_file):
-    """
-    Main analysis function that processes the uploaded IFC file.
-
-    Args:
-        ifc_file: Uploaded IFC file from Gradio
-
-    Returns:
-        tuple: (text_report, html_report, status_message)
-    """
+    """Property analysis: thickness, area, material, load capacity estimates."""
     if ifc_file is None:
         return (
-            "⚠️ Please upload an IFC file to begin analysis.",
-            "<p style='color: #ff9800; padding: 20px;'>⚠️ Please upload an IFC file to begin analysis.</p>",
-            "No file uploaded"
+            "Please upload an IFC file to begin analysis.",
+            "<p style='color:#ff9800;padding:20px;'>Please upload an IFC file.</p>",
+            "No file uploaded",
         )
-
     try:
-        # Get file path
         ifc_path = ifc_file if isinstance(ifc_file, str) else ifc_file.name
         filename = os.path.basename(ifc_path)
-
-        # Initialize analyzer
         analyzer = IFCAnalyzer(ifc_path)
-
-        # Extract data
-        all_slabs = analyzer.get_slabs()
+        all_slabs    = analyzer.get_slabs()
         ground_slabs = analyzer.get_ground_floor_slabs()
-        foundations = analyzer.get_foundations()
+        foundations  = analyzer.get_foundations()
 
-        # Generate reports
         text_report = ReportGenerator.generate_slab_foundation_report(
-            slabs=all_slabs,
-            foundations=foundations,
-            ground_slabs=ground_slabs,
-            ifc_filename=filename
+            slabs=all_slabs, foundations=foundations,
+            ground_slabs=ground_slabs, ifc_filename=filename,
         )
-
         html_report = ReportGenerator.generate_html_report(
-            slabs=all_slabs,
-            foundations=foundations,
-            ground_slabs=ground_slabs,
-            ifc_filename=filename
+            slabs=all_slabs, foundations=foundations,
+            ground_slabs=ground_slabs, ifc_filename=filename,
         )
-
-        status = f"✓ Analysis complete: {len(all_slabs)} slabs, {len(ground_slabs)} ground floor slabs, {len(foundations)} foundations found"
-
+        status = (f"Analysis complete: {len(all_slabs)} slabs, "
+                  f"{len(ground_slabs)} ground floor, {len(foundations)} foundations")
         return text_report, html_report, status
 
     except Exception as e:
-        error_msg = f"❌ Error analyzing IFC file: {str(e)}"
-        error_html = f"<div style='color: #f44336; padding: 20px; background: #ffebee; border-radius: 8px;'><strong>Error:</strong> {str(e)}</div>"
-        return error_msg, error_html, "Analysis failed"
+        err_html = (f"<div style='color:#f44336;padding:20px;background:#ffebee;"
+                    f"border-radius:8px;'><strong>Error:</strong> {e}</div>")
+        return f"Error: {e}", err_html, "Analysis failed"
 
 
-# Custom CSS for better styling
-CSS = """
-.gradio-container {
-    font-family: 'Segoe UI', Arial, sans-serif;
-}
+# ── Gradio UI ─────────────────────────────────────────────────────────────────
 
-.main-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    text-align: center;
-}
+PLACEHOLDER_FOUNDATION = (
+    "<p style='color:#999;text-align:center;padding:40px;'>"
+    "Upload an IFC file and click <strong>Foundation Compliance Check</strong> to run "
+    "Art.&nbsp;69, Load Check, DB&nbsp;SE-AE, and Art.&nbsp;128 checks.</p>"
+)
+PLACEHOLDER_VISUAL = (
+    "<p style='color:#999;text-align:center;padding:40px;'>"
+    "Upload an IFC file and click <strong>Analyze Properties</strong> to see results.</p>"
+)
 
-.upload-section {
-    border: 2px dashed #667eea;
-    border-radius: 10px;
-    padding: 20px;
-    background: #f8f9fa;
-}
+with gr.Blocks(title="IFC Structural Compliance") as app:
 
-.report-section {
-    border-radius: 8px;
-    background: white;
-}
-
-.status-box {
-    padding: 10px;
-    border-radius: 6px;
-    background: #e8f5e9;
-    border-left: 4px solid #4caf50;
-    margin: 10px 0;
-}
-"""
-
-# Build Gradio Interface
-with gr.Blocks(title="IFC Reinforcement Analysis") as app:
-
-    # Header
     gr.HTML("""
-        <div class="main-header">
-            <h1 style="margin: 0; font-size: 36px;">🏗️ IFC Reinforcement Analysis</h1>
-            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.95;">
-                Analyze ground floor slabs and foundations for load capacity and thickness
-            </p>
-        </div>
+    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#2d6a9f 100%);
+                color:white;padding:28px 30px;border-radius:10px;margin-bottom:18px;'>
+      <h1 style='margin:0;font-size:28px;font-family:Segoe UI,Arial,sans-serif;'>
+        IFC Structural Compliance
+      </h1>
+      <p style='margin:8px 0 0 0;opacity:.85;font-size:14px;'>
+        Foundation compliance (Art.&nbsp;69 &middot; Load Check &middot;
+        DB&nbsp;SE-AE &middot; Art.&nbsp;128) &nbsp;+&nbsp; Property analysis
+      </p>
+    </div>
     """)
 
-    # Description
-    gr.Markdown("""
-    ### 📋 What This Tool Does
-
-    This application analyzes your IFC (Industry Foundation Classes) building model to extract and report:
-
-    - **Ground Floor Slab Properties**: Thickness, load capacity, and material composition
-    - **Foundation Details**: Thickness, type, and structural properties
-    - **Load Capacity Estimates**: Preliminary assessment based on slab thickness and material
-
-    Simply upload your IFC file and click "Analyze Model" to generate a comprehensive report.
-    """)
-
-    # Main content area
     with gr.Row():
-        with gr.Column(scale=1):
-            gr.Markdown("### 📤 Upload IFC Model")
+
+        # ── Left column: upload + buttons ────────────────────────────────────
+        with gr.Column(scale=1, min_width=280):
 
             ifc_input = gr.File(
                 label="Upload IFC File",
                 file_types=[".ifc"],
                 file_count="single",
-                elem_classes=["upload-section"]
             )
 
-            analyze_btn = gr.Button(
-                "🔍 Analyze Model",
+            foundation_btn = gr.Button(
+                "Foundation Compliance Check",
                 variant="primary",
                 size="lg",
-                scale=1
+            )
+            foundation_status = gr.Textbox(
+                label="Compliance Status",
+                value="Ready",
+                interactive=False,
             )
 
+            gr.HTML("<hr style='margin:12px 0;border-color:#e5e7eb;'>")
+
+            analyze_btn = gr.Button(
+                "Analyze Properties",
+                variant="secondary",
+                size="lg",
+            )
             status_text = gr.Textbox(
-                label="Status",
-                value="Ready to analyze",
+                label="Property Analysis Status",
+                value="Ready",
                 interactive=False,
-                elem_classes=["status-box"]
             )
 
             gr.Markdown("""
-            #### 💡 Tips:
-            - Ensure your IFC file includes slab and foundation elements
-            - Analysis works best with IFC 2x3 or IFC 4 files
-            - Results include both text and visual HTML reports
+**Compliance checks** verify your model against:
+- **Art. 69** — Slab thickness ≥ 300 mm
+- **Load Check** — Footing area vs required area
+- **DB SE-AE** — Bearing beam ≥ 300×300 mm
+- **Art. 128** — Max floors + addable floors
+
+**Property analysis** extracts thickness, area, material, and load estimates.
             """)
 
-        with gr.Column(scale=2):
-            gr.Markdown("### 📊 Analysis Results")
+        # ── Right column: results tabs ────────────────────────────────────────
+        with gr.Column(scale=2, min_width=480):
 
-            # Tabs for different report views
             with gr.Tabs():
-                with gr.Tab("📄 Visual Report"):
-                    html_output = gr.HTML(
-                        value="<p style='color: #999; text-align: center; padding: 40px;'>Upload an IFC file and click 'Analyze Model' to see results here.</p>",
-                        elem_classes=["report-section"]
-                    )
 
-                with gr.Tab("📝 Text Report"):
+                with gr.Tab("Foundation Compliance"):
+                    foundation_html = gr.HTML(value=PLACEHOLDER_FOUNDATION)
+
+                with gr.Tab("Visual Report"):
+                    html_output = gr.HTML(value=PLACEHOLDER_VISUAL)
+
+                with gr.Tab("Text Report"):
                     text_output = gr.Textbox(
-                        label="Detailed Report",
-                        lines=25,
-                        value="Upload an IFC file and click 'Analyze Model' to generate a detailed text report.",
-                        elem_classes=["report-section"]
+                        label="Detailed Property Report",
+                        lines=28,
+                        value="Click 'Analyze Properties' to generate a text report.",
                     )
 
-    # Connect the button to the analysis function
+    # ── Button connections ────────────────────────────────────────────────────
+    foundation_btn.click(
+        fn=run_foundation_checks,
+        inputs=[ifc_input],
+        outputs=[foundation_html, foundation_status],
+    )
+
     analyze_btn.click(
         fn=analyze_ifc_model,
         inputs=[ifc_input],
-        outputs=[text_output, html_output, status_text]
+        outputs=[text_output, html_output, status_text],
     )
 
-    # Footer
-    gr.Markdown("""
-    ---
-    **Disclaimer:** This tool provides preliminary structural analysis for informational purposes only.
-    All structural calculations must be verified by a licensed structural engineer.
-    Load capacity estimates are simplified and should not be used for final design decisions.
+    gr.HTML("""
+    <div style='margin-top:14px;padding:10px 14px;background:#f1f5f9;
+                border-radius:6px;font-size:11px;color:#64748b;'>
+      <strong>Disclaimer:</strong> Automated preliminary analysis only.
+      All structural results must be verified by a licensed structural engineer.
+      Default soil bearing capacity 150&nbsp;kN/m&sup2; is used when not present in the IFC model.
+    </div>
     """)
 
 
-# Launch the application
+# ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("=" * 80)
-    print("IFC Reinforcement Analysis Application")
-    print("=" * 80)
-    print("\nStarting Gradio server...")
-    print("Upload your IFC model to analyze ground floor slabs and foundations.")
-    print("\nPress Ctrl+C to stop the server.")
-    print("=" * 80)
+    print("=" * 70)
+    print("IFC Structural Compliance — Foundation + Property Analysis")
+    print("=" * 70)
+    print("Starting server... opening http://127.0.0.1:7861")
+    print("Press Ctrl+C to stop.")
+    print("=" * 70)
 
     app.launch(
-        server_name="127.0.0.1",  # localhost only
-        server_port=7861,          # use 7861 instead of 7860
-        share=False,               # don't create public link
-        show_error=True,           # show detailed errors
-        inbrowser=True             # auto-open in browser
+        server_name="127.0.0.1",
+        server_port=7861,
+        share=False,
+        show_error=True,
+        inbrowser=True,
     )

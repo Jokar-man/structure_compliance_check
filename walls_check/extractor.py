@@ -8,9 +8,11 @@ list[dict] where each dict contains:
 - canonical fields (Thickness_mm, Height_mm, Length_mm, U_value, FireRating, etc.) + sources
 """
 
-#import ifcopenshell
-import ifcopenshell.util.pset as pset
 import ifcopenshell.util.element as element
+try:
+    import ifcopenshell.util.pset as pset
+except ImportError:
+    pset = None
 
 
 QSET_CANDIDATES = ["Qto_WallBaseQuantities", "BaseQuantities", "Dimensions"]
@@ -69,12 +71,120 @@ def get_container_storey(wall):
     return {"StoreyName": None, "StoreyGlobalId": None, "StoreyElevation": None}
 
 
+def get_psets(obj):
+    if not obj:
+        return {}
+
+    if hasattr(element, "get_psets"):
+        try:
+            return element.get_psets(obj, psets_only=True) or {}
+        except TypeError:
+            # Older signatures may not accept psets_only/qtos_only.
+            all_sets = element.get_psets(obj) or {}
+            return {name: values for name, values in all_sets.items() if not str(name).startswith("Qto_")}
+
+    if pset and hasattr(pset, "get_psets"):
+        return pset.get_psets(obj) or {}
+
+    return {}
+
+
+def get_qtos(obj):
+    if not obj:
+        return {}
+
+    if hasattr(element, "get_psets"):
+        try:
+            return element.get_psets(obj, qtos_only=True) or {}
+        except TypeError:
+            all_sets = element.get_psets(obj) or {}
+            return {
+                name: values
+                for name, values in all_sets.items()
+                if str(name).startswith("Qto_") or str(name) in QSET_CANDIDATES
+            }
+
+    if pset and hasattr(pset, "get_quantities"):
+        return pset.get_quantities(obj) or {}
+
+    return {}
+
+
 def get_quantities(wall):
-    qtos = pset.get_quantities(wall) or {}
+    qtos = get_qtos(wall)
     for name in QSET_CANDIDATES:
         if name in qtos:
             return name, qtos[name]
     return None, {}
+
+
+def _space_usage_hints(space):
+    hints = []
+    for attr in ("Name", "LongName", "ObjectType", "Description"):
+        value = getattr(space, attr, None)
+        if isinstance(value, str) and value.strip():
+            hints.append(value.strip())
+
+    psets = get_psets(space)
+    for pset_name, props in (psets or {}).items():
+        if not isinstance(props, dict):
+            continue
+        for key in ("Reference", "Category", "OccupancyType", "RoomTag", "Function", "Usage"):
+            value = props.get(key)
+            if isinstance(value, str) and value.strip():
+                hints.append(value.strip())
+        # Keep pset name too; many tools encode usage in vendor pset names.
+        if isinstance(pset_name, str) and pset_name.strip():
+            hints.append(pset_name.strip())
+
+    # Preserve order, remove duplicates.
+    return list(dict.fromkeys(hints))
+
+
+def get_space_boundary_data(model):
+    data = {}
+
+    rel_names = [
+        "IfcRelSpaceBoundary",
+        "IfcRelSpaceBoundary1stLevel",
+        "IfcRelSpaceBoundary2ndLevel",
+    ]
+
+    for rel_name in rel_names:
+        try:
+            rels = model.by_type(rel_name) or []
+        except:
+            rels = []
+
+        for rel in rels:
+            wall = getattr(rel, "RelatedBuildingElement", None)
+            if not wall:
+                continue
+            wid = wall.id() if hasattr(wall, "id") else id(wall)
+            wall_data = data.setdefault(
+                wid,
+                {
+                    "count": 0,
+                    "space_names": [],
+                    "space_ids": [],
+                    "space_hints": [],
+                },
+            )
+            wall_data["count"] += 1
+
+            space = getattr(rel, "RelatingSpace", None)
+            if space:
+                sid = getattr(space, "GlobalId", None)
+                sname = getattr(space, "Name", None)
+                if sid and sid not in wall_data["space_ids"]:
+                    wall_data["space_ids"].append(sid)
+                if sname and sname not in wall_data["space_names"]:
+                    wall_data["space_names"].append(sname)
+                for hint in _space_usage_hints(space):
+                    if hint not in wall_data["space_hints"]:
+                        wall_data["space_hints"].append(hint)
+
+    return data
 
 
 def extract_material_info(obj):
@@ -178,15 +288,30 @@ def pick_thickness_mm(wall, qset_name, q, psets_inst, psets_type, mat_inst, mat_
 
 
 def extract_walls(model):
-    walls = model.by_type("IfcWall") + model.by_type("IfcWallStandardCase")
+    # IfcWall may already include IfcWallStandardCase (subtype), so dedupe by STEP id.
+    walls = []
+    seen_ids = set()
+    for w in model.by_type("IfcWall") + model.by_type("IfcWallStandardCase"):
+        wid = w.id() if hasattr(w, "id") else id(w)
+        if wid in seen_ids:
+            continue
+        seen_ids.add(wid)
+        walls.append(w)
     out = []
+    space_boundary_data = get_space_boundary_data(model)
 
     for w in walls:
         wtype = get_wall_type(w)
+        wall_id = w.id() if hasattr(w, "id") else id(w)
+        sb_data = space_boundary_data.get(wall_id, {})
+        sb_count = int(sb_data.get("count", 0))
+        sb_space_names = list(sb_data.get("space_names", []))
+        sb_space_ids = list(sb_data.get("space_ids", []))
+        sb_space_hints = list(sb_data.get("space_hints", []))
 
         qset_name, q = get_quantities(w)
-        psets_inst = pset.get_psets(w) or {}
-        psets_type = pset.get_psets(wtype) or {} if wtype else {}
+        psets_inst = get_psets(w)
+        psets_type = get_psets(wtype) if wtype else {}
 
         mat_inst = extract_material_info(w)
         mat_type = extract_material_info(wtype) if wtype else {"MaterialName": None, "LayerNames": [], "LayerThicknesses": [], "TotalLayerThickness": None}
@@ -241,7 +366,14 @@ def extract_walls(model):
             # raw for any future rules
             "Psets_Instance": psets_inst,
             "Psets_Type": psets_type,
-            "Qtos_All": pset.get_quantities(w) or {},
+            "Qtos_All": get_qtos(w),
+
+            # IFC relationship quality
+            "SpaceBoundaryCount": sb_count,
+            "HasSpaceBoundary": sb_count > 0,
+            "AdjacentSpaceNames": sb_space_names,
+            "AdjacentSpaceIds": sb_space_ids,
+            "AdjacentSpaceHints": sb_space_hints,
         }
 
         out.append(row)

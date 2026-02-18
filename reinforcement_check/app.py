@@ -43,8 +43,70 @@ _CHECKS_META = [
 ]
 
 
-def _build_foundation_html(card_data: list, all_rows: list) -> str:
-    """Build 4 summary cards + scrollable detail table."""
+def _build_floor_banner(floor_rows: list) -> str:
+    """Build a prominent floor-capacity banner from Art. 128 results."""
+    if not floor_rows:
+        return ""
+
+    # Aggregate across all footings: use the most conservative (lowest addable)
+    addable_values, max_floors_values, existing_values = [], [], []
+    for r in floor_rows:
+        log = r.get("log") or ""
+        try:
+            parts = dict(kv.split("=") for kv in log.split() if "=" in kv)
+            addable_values.append(int(parts.get("addable", 0)))
+            max_floors_values.append(int(parts.get("max", 0)))
+            existing_values.append(int(parts.get("existing", 1)))
+        except Exception:
+            pass
+
+    if not addable_values:
+        # Fall back to parsing comment
+        for r in floor_rows:
+            comment = r.get("comment", "")
+            actual  = r.get("actual_value", "")
+            return (f"<div style='background:#f3f4f6;border-radius:8px;"
+                    f"padding:12px 16px;margin-bottom:12px;font-size:13px;'>"
+                    f"<strong>Art. 128:</strong> {comment or actual}</div>")
+
+    addable  = min(addable_values)
+    max_fl   = min(max_floors_values)
+    existing = existing_values[0] if existing_values else 1
+
+    if addable > 0:
+        bg, border, icon, msg_color = "#d1fae5", "#10b981", "&#10003;", "#065f46"
+        msg = f"{addable} floor{'s' if addable != 1 else ''} can be added"
+    elif addable == 0:
+        bg, border, icon, msg_color = "#fef3c7", "#f59e0b", "&#9888;", "#92400e"
+        msg = "No additional floors — foundation is at capacity"
+    else:
+        bg, border, icon, msg_color = "#fee2e2", "#ef4444", "&#10007;", "#991b1b"
+        msg = f"{abs(addable)} floor{'s' if abs(addable) != 1 else ''} over capacity — underpinning required"
+
+    return f"""
+    <div style='background:{bg};border:2px solid {border};border-radius:10px;
+                padding:14px 20px;margin-bottom:14px;
+                display:flex;align-items:center;gap:16px;'>
+      <div style='font-size:36px;color:{msg_color};flex-shrink:0;'>{icon}</div>
+      <div style='flex:1;'>
+        <div style='font-size:18px;font-weight:700;color:{msg_color};'>{msg}</div>
+        <div style='font-size:12px;color:#4b5563;margin-top:4px;'>
+          Art.&nbsp;128 &nbsp;|&nbsp;
+          <strong>Existing:</strong> {existing} floors &nbsp;&nbsp;
+          <strong>Max capacity:</strong> {max_fl} floors &nbsp;&nbsp;
+          <strong>Addable:</strong>
+          <span style='font-weight:700;color:{msg_color};'>
+            {"+" if addable >= 0 else ""}{addable}
+          </span>
+        </div>
+      </div>
+    </div>"""
+
+
+def _build_foundation_html(card_data: list, all_rows: list, floor_rows: list) -> str:
+    """Build floor banner + 4 summary cards + scrollable detail table."""
+
+    banner = _build_floor_banner(floor_rows)
 
     # ── Summary cards ──
     cards = "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;'>"
@@ -133,7 +195,7 @@ def _build_foundation_html(card_data: list, all_rows: list) -> str:
       engineer per the Metropolitan Building Ordinances.
     </div>"""
 
-    return cards + table + disclaimer
+    return banner + cards + table + disclaimer
 
 
 def run_foundation_checks(ifc_file):
@@ -151,8 +213,9 @@ def run_foundation_checks(ifc_file):
                f"border-radius:8px;'><strong>Error opening IFC:</strong> {e}</div>")
         return err, f"Error: {e}"
 
-    card_data = []
-    all_rows  = []
+    card_data  = []
+    all_rows   = []
+    floor_rows = []   # Art. 128 rows kept separately for the banner
 
     for fn, reg_label, detail_label in _CHECKS_META:
         try:
@@ -167,6 +230,9 @@ def run_foundation_checks(ifc_file):
                 "comment": str(e), "log": None,
             }]
 
+        if fn is check_floor_capacity:
+            floor_rows = rows
+
         all_rows.extend((reg_label, r) for r in rows)
 
         counts = {}
@@ -180,7 +246,7 @@ def run_foundation_checks(ifc_file):
                    "pass")
         card_data.append((reg_label, detail_label, counts, overall, len(rows)))
 
-    html = _build_foundation_html(card_data, all_rows)
+    html = _build_foundation_html(card_data, all_rows, floor_rows)
 
     n_pass = sum(1 for _, r in all_rows if r.get("check_status") == "pass")
     n_fail = sum(1 for _, r in all_rows if r.get("check_status") == "fail")
@@ -344,13 +410,12 @@ if __name__ == "__main__":
     print("=" * 70)
     print("IFC Structural Compliance — Foundation + Property Analysis")
     print("=" * 70)
-    print("Starting server... opening http://127.0.0.1:7861")
     print("Press Ctrl+C to stop.")
     print("=" * 70)
 
     app.launch(
         server_name="127.0.0.1",
-        server_port=7861,
+        server_port=None,   # auto-select next free port
         share=False,
         show_error=True,
         inbrowser=True,

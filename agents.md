@@ -1,90 +1,31 @@
-# Agents Documentation
+# AGENTS.md — IFCore Compliance Checker
 
-## Overview
-This document describes the agents and automated components used in the structure compliance check system for BIM models.
+## Repository Structure
 
-## Agent Architecture
+```
+structure_compliance_check/
+├── tools/                     ← IFCore-compliant checker modules
+│   ├── checker_walls.py       ← check_wall_thickness, check_wall_uvalue, check_wall_external_uvalue
+│   ├── checker_beams.py       ← check_beam_depth, check_beam_width
+│   ├── checker_columns.py     ← check_column_min_dimension
+│   ├── checker_slabs.py       ← check_slab_thickness
+│   ├── checker_reinforcement.py ← check_ground_slab_thickness, check_foundations
+│   └── checker_accessibility.py ← check_door_width, check_window_height, ...
+├── mani_mock/                 ← Gradio web application
+│   ├── app.py                 ← Main UI
+│   ├── orchestrator.py        ← Runs all team checks
+│   ├── models.py              ← Data models (IFCore schema)
+│   ├── teams/                 ← Team adapters (auto-discovered)
+│   └── ...
+├── walls_check/               ← Wall extraction + rules (source module)
+├── beam_check/src/            ← Beam/column/door/stair checks (source module)
+└── reinforcement_check/src/   ← Slab/foundation analysis (source module)
+```
 
-### 1. Beam Compliance Agent
-**Location**: `beam_check/`
-**Purpose**: Validates beam structural elements against compliance standards
-**Responsibilities**:
-- Check beam dimensions and specifications
-- Verify load-bearing capacity
-- Validate reinforcement requirements
-- Generate compliance reports for beam elements
+## Conventions
 
-### 2. Column Compliance Agent
-**Location**: `column_check/`
-**Purpose**: Ensures column elements meet structural requirements
-**Responsibilities**:
-- Validate column dimensions and placement
-- Check load distribution
-- Verify structural integrity
-- Assess alignment and positioning
-
-### 3. Slab Compliance Agent
-**Location**: `slab_check/`
-**Purpose**: Analyzes slab elements for compliance
-**Responsibilities**:
-- Verify slab thickness and coverage
-- Check reinforcement spacing
-- Validate load distribution
-- Ensure proper connection points
-
-### 4. Wall Compliance Agent
-**Location**: `walls_check/`
-**Purpose**: Validates wall structures and specifications
-**Responsibilities**:
-- Check wall thickness and height
-- Verify structural connections
-- Validate material specifications
-- Ensure proper reinforcement
-
-## Agent Coordination
-
-### Main Application Controller
-**Location**: `basic_app/`
-**Purpose**: Orchestrates all compliance checking agents
-
-The main application coordinates between different specialized agents to provide:
-- Unified compliance reporting
-- Cross-element validation
-- Consolidated results
-- User interface for interaction
-
-## Workflow
-
-1. **Model Ingestion**: BIM model is loaded into the system
-2. **Element Extraction**: Structural elements are identified and categorized
-3. **Agent Dispatch**: Appropriate compliance agents are invoked for each element type
-4. **Parallel Processing**: Multiple agents can run simultaneously on different elements
-5. **Result Aggregation**: All agent results are collected and consolidated
-6. **Report Generation**: Final compliance report is generated
-
-## Future Agent Extensions
-
-Potential additional agents for future development:
-- Foundation compliance agent
-- Connection/joint validation agent
-- Material specification checker
-- Code compliance validator (regional building codes)
-- Risk assessment agent
-
-## Agent Communication Protocol
-
-Agents communicate through standardized interfaces:
-- Input: BIM model elements in IFC format
-- Output: Compliance status (Pass/Fail/Warning)
-- Reports: JSON-formatted detailed findings
-
-## Configuration
-
-Agent behavior can be configured through:
-- Compliance standards (regional codes)
-- Tolerance levels
-- Validation thresholds
-- Reporting verbosity
-
----
-*For more information on each specific agent, refer to the README.md in their respective directories.*
+- **Checker files**: `tools/checker_<topic>.py`
+- **Check functions**: `check_<what>(model, **kwargs) → list[dict]`
+- **Required dict keys**: `element_id`, `element_type`, `element_name`, `element_name_long`, `check_status`, `actual_value`, `required_value`, `comment`, `log`
+- **Status values**: `pass`, `fail`, `warning`, `blocked`, `log`
+- **Max file length**: 300 lines per file

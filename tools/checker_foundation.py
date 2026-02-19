@@ -497,7 +497,6 @@ def check_floor_capacity(model: ifcopenshell.file) -> list:
     max_floors = floor(bearing_capacity / floor_load_per_m2)
     addable_floors = max_floors - existing_floors
     """
-    scale = _get_length_scale(model)
     n_existing = max(len(model.by_type("IfcBuildingStorey")), 1)
 
     floor_load = DEFAULT_FLOOR_LOAD_KN_M2
@@ -575,3 +574,27 @@ def check_floor_capacity(model: ifcopenshell.file) -> list:
                                   f"addable={addable}"),
         })
     return results
+
+
+if __name__ == "__main__":
+    import sys
+    ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
+    print("Loading:", ifc_path)
+    _model = ifcopenshell.open(ifc_path)
+    print("Footings:", len(list(_model.by_type("IfcFooting"))),
+          " Slabs:", len(list(_model.by_type("IfcSlab"))),
+          " Storeys:", len(list(_model.by_type("IfcBuildingStorey"))))
+
+    _ICON = {"pass": "PASS", "fail": "FAIL", "warning": "WARN", "blocked": "BLKD", "log": "LOG "}
+    for _fn in [check_foundation_slab_thickness, check_foundation_dimensions,
+                check_bearing_beam_section, check_floor_capacity]:
+        print("\n" + "=" * 60)
+        print(" ", _fn.__name__)
+        print("=" * 60)
+        for _row in _fn(_model):
+            print(" ", "[" + _ICON.get(_row["check_status"], "?") + "]", _row["element_name"])
+            if _row["actual_value"]:
+                print("         actual   :", _row["actual_value"])
+            if _row["required_value"]:
+                print("         required :", _row["required_value"])
+            print("         comment  :", _row["comment"])

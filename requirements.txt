@@ -1,0 +1,16 @@
+# Structure Compliance Check — Python dependencies
+#
+# Install with:
+#   pip install -r requirements.txt
+
+# IFC model parsing
+ifcopenshell>=0.8.4
+
+# Numerical operations (required by ifcopenshell internals)
+numpy
+
+# Gradio web interface (for reinforcement_check/app.py)
+gradio>=4.20
+
+# Environment variable loading (optional)
+python-dotenv>=1.0.0

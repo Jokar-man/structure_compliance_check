@@ -1,0 +1,15 @@
+# Core IFC parsing
+ifcopenshell>=0.8.4
+numpy
+
+# Web interface
+gradio>=4.20
+
+# 3D viewer
+plotly>=5.18
+
+# Models
+pydantic>=2.0
+
+# Utilities
+python-dotenv>=1.0.0

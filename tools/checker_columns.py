@@ -55,3 +55,24 @@ def check_column_min_dimension(model, min_dim_mm=250):
     """EHE — smallest cross-section side of a column ≥ 250 mm."""
     lines = _raw_column_check(model, min_dim_mm=min_dim_mm)
     return [_parse_line(l, f"≥ {min_dim_mm} mm") for l in lines]
+
+
+if __name__ == "__main__":
+    import ifcopenshell
+    ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
+    print("Loading:", ifc_path)
+    _model = ifcopenshell.open(ifc_path)
+    print("Columns:", len(list(_model.by_type("IfcColumn"))))
+
+    _ICON = {"pass": "PASS", "fail": "FAIL", "warning": "WARN", "blocked": "BLKD", "log": "LOG "}
+    for _fn in [check_column_min_dimension]:
+        print("\n" + "=" * 60)
+        print(" ", _fn.__name__)
+        print("=" * 60)
+        for _row in _fn(_model):
+            print(" ", "[" + _ICON.get(_row["check_status"], "?") + "]", _row["element_name"])
+            if _row["actual_value"]:
+                print("         actual   :", _row["actual_value"])
+            if _row["required_value"]:
+                print("         required :", _row["required_value"])
+            print("         comment  :", _row["comment"])

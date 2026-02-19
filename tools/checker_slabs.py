@@ -5,6 +5,8 @@ Checks:
   check_slab_thickness — EHE / DB SE — slab thickness 100–200 mm
 """
 
+import sys
+import ifcopenshell
 import ifcopenshell.util.element
 
 
@@ -81,3 +83,23 @@ def check_slab_thickness(model):
             "log":               None,
         })
     return results
+
+
+if __name__ == "__main__":
+    ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
+    print("Loading:", ifc_path)
+    _model = ifcopenshell.open(ifc_path)
+    print("Slabs:", len(list(_model.by_type("IfcSlab"))))
+
+    _ICON = {"pass": "PASS", "fail": "FAIL", "warning": "WARN", "blocked": "BLKD", "log": "LOG "}
+    for _fn in [check_slab_thickness]:
+        print("\n" + "=" * 60)
+        print(" ", _fn.__name__)
+        print("=" * 60)
+        for _row in _fn(_model):
+            print(" ", "[" + _ICON.get(_row["check_status"], "?") + "]", _row["element_name"])
+            if _row["actual_value"]:
+                print("         actual   :", _row["actual_value"])
+            if _row["required_value"]:
+                print("         required :", _row["required_value"])
+            print("         comment  :", _row["comment"])

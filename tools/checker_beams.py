@@ -65,3 +65,24 @@ def check_beam_width(model, min_width_mm=150):
     """EHE / DB SE — beam width (flange) ≥ 150 mm."""
     lines = _raw_beam_width(model, min_width_mm=min_width_mm)
     return [_parse_line(l, "IfcBeam", f"≥ {min_width_mm} mm") for l in lines]
+
+
+if __name__ == "__main__":
+    import ifcopenshell
+    ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
+    print("Loading:", ifc_path)
+    _model = ifcopenshell.open(ifc_path)
+    print("Beams:", len(list(_model.by_type("IfcBeam"))))
+
+    _ICON = {"pass": "PASS", "fail": "FAIL", "warning": "WARN", "blocked": "BLKD", "log": "LOG "}
+    for _fn in [check_beam_depth, check_beam_width]:
+        print("\n" + "=" * 60)
+        print(" ", _fn.__name__)
+        print("=" * 60)
+        for _row in _fn(_model):
+            print(" ", "[" + _ICON.get(_row["check_status"], "?") + "]", _row["element_name"])
+            if _row["actual_value"]:
+                print("         actual   :", _row["actual_value"])
+            if _row["required_value"]:
+                print("         required :", _row["required_value"])
+            print("         comment  :", _row["comment"])

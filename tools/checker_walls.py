@@ -76,3 +76,24 @@ def check_wall_external_uvalue(model):
     walls = extract_walls(model)
     lines = wall_rules.rule_external_walls_must_have_uvalue(walls)
     return [_parse_wall_line(l, required_value="U-value must be defined for external walls") for l in lines]
+
+
+if __name__ == "__main__":
+    import ifcopenshell
+    ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
+    print("Loading:", ifc_path)
+    _model = ifcopenshell.open(ifc_path)
+    print("Walls:", len(list(_model.by_type("IfcWall"))))
+
+    _ICON = {"pass": "PASS", "fail": "FAIL", "warning": "WARN", "blocked": "BLKD", "log": "LOG "}
+    for _fn in [check_wall_thickness, check_wall_uvalue, check_wall_external_uvalue]:
+        print("\n" + "=" * 60)
+        print(" ", _fn.__name__)
+        print("=" * 60)
+        for _row in _fn(_model):
+            print(" ", "[" + _ICON.get(_row["check_status"], "?") + "]", _row["element_name"])
+            if _row["actual_value"]:
+                print("         actual   :", _row["actual_value"])
+            if _row["required_value"]:
+                print("         required :", _row["required_value"])
+            print("         comment  :", _row["comment"])

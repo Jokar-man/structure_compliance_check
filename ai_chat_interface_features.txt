@@ -1,0 +1,506 @@
+================================================================================
+  AI CHAT INTERFACE — FEATURE SPECIFICATION FOR IFCORE PLATFORM
+================================================================================
+
+Document type:   Feature requirements & specification
+Platform:        IFCore — Integrated Compliance Platform
+Date:            2026-02-19
+Current state:   The "Agent Chat" tab exists as a stub returning hardcoded
+                 summaries. This document describes all the features required
+                 to build a production-grade AI chat interface.
+
+
+================================================================================
+  1. OVERVIEW & PURPOSE
+================================================================================
+
+The AI Chat Interface is a conversational assistant embedded in the IFCore
+Gradio application that lets users ask questions about IFC building models,
+compliance results, regulations, and remediation steps in natural language.
+It replaces the current stub (on_chat_message / on_chat_message_v2) with a
+fully functional AI-powered agent.
+
+1.1. Target Users
+  - Structural engineers checking building compliance
+  - Architects reviewing IFC model properties
+  - Project managers needing plain-language compliance summaries
+  - Regulators / inspectors verifying reports
+
+1.2. Core Value Proposition
+  - Turn complex compliance results (pass/fail/warning/blocked across
+    hundreds of elements) into natural-language explanations
+  - Provide regulation-aware answers referencing EHE, CTE DB HE, DB SUA,
+    Art. 69, Art. 128, etc.
+  - Enable interactive exploration of IFC model data without writing code
+
+
+================================================================================
+  2. FUNCTIONAL FEATURES
+================================================================================
+
+2.1. Compliance Results Q&A
+--------------------------------------------------------------------------------
+  - Summary on demand
+    "What's the overall compliance score?"
+    Returns score %, pass/fail/warning counts
+
+  - Team-level drill-down
+    "Show me all wall check results"
+    Filters by team (Walls, Beams, Columns, Slabs, Reinforcement, Accessibility)
+
+  - Element-level queries
+    "Which beams failed the depth check?"
+    Returns specific elements with actual vs. required values
+
+  - Status filtering
+    "List all blocked elements"
+    Filters by check_status (pass, fail, warning, blocked, log)
+
+  - Worst-offender ranking
+    "What are the top 5 most critical failures?"
+    Ranks by severity / deviation from required
+
+  - Comparative queries
+    "How do wall results compare to slab results?"
+    Cross-team comparison
+
+2.2. IFC Model Exploration
+--------------------------------------------------------------------------------
+  - Element inventory
+    "How many walls are in the model?"
+    Counts by IFC entity type
+
+  - Property lookup
+    "What is the thickness of wall W-001?"
+    Extracts specific property from IFC element
+
+  - Schema info
+    "What IFC schema version is this model?"
+    Returns IFC2X3 / IFC4 / IFC4X3
+
+  - Material queries
+    "What materials are used in the slabs?"
+    Lists materials from IfcMaterialLayerSet
+
+  - Spatial queries
+    "Which elements are on storey 2?"
+    Filters by IfcBuildingStorey assignment
+
+  - Geometry queries
+    "What are the dimensions of column C-12?"
+    Extracts profile dimensions
+
+2.3. Regulation Guidance
+--------------------------------------------------------------------------------
+  - Regulation explanation
+    "What does Art. 69 require for foundations?"
+    Plain-language explanation of the regulation
+
+  - Threshold lookup
+    "What is the minimum beam depth per EHE?"
+    Returns >= 200 mm with context
+
+  - Remediation advice
+    "How can I fix the failing wall thickness?"
+    Suggests increasing to >= 100 mm per DB SE-F
+
+  - Regulation cross-reference
+    "Which regulations apply to accessibility?"
+    Lists DB SUA checks and requirements
+
+  - Regional context
+    "Are these Spanish regulations or Catalan?"
+    Clarifies jurisdiction (ES, CAT, Metropolitan)
+
+2.4. Report & Export Assistance
+--------------------------------------------------------------------------------
+  - Report summarization
+    "Summarize the report in 3 sentences"
+    Concise natural-language summary
+
+  - Export guidance
+    "How do I share these results?"
+    Points to JSON/text download, explains report tabs
+
+  - Custom report snippets
+    "Write a summary paragraph for the client"
+    Formal compliance statement
+
+  - Data extraction
+    "Give me a CSV of all failed beam elements"
+    Formatted tabular output
+
+2.5. Contextual Awareness
+--------------------------------------------------------------------------------
+  - Project context
+    Automatically aware of the currently loaded project
+    (name, file, schema, region)
+
+  - Check results context
+    Has access to all CheckResult and ElementResult data from the latest run
+
+  - Session memory
+    Remembers previous questions in the same session for follow-up queries
+
+  - No-model guard
+    If no IFC file has been uploaded, prompts the user to upload first
+
+  - Error context
+    If checks errored, explains what went wrong and suggests fixes
+
+
+================================================================================
+  3. AI / LLM BACKEND FEATURES
+================================================================================
+
+3.1. LLM Integration
+--------------------------------------------------------------------------------
+  - LLM provider support
+    Support for OpenAI (GPT-4o/4.1), Google Gemini, Anthropic Claude,
+    or local models via Ollama
+
+  - API key management
+    Secure .env-based configuration via python-dotenv (already a dependency)
+
+  - Model selection
+    Configurable model name in config.py (e.g., CHAT_MODEL = "gpt-4o")
+
+  - Fallback mode
+    If no API key is configured, fall back to rule-based responses
+    (enhanced version of current stub)
+
+  - Temperature control
+    Low temperature (0.1-0.3) for factual compliance answers;
+    higher for creative summaries
+
+3.2. Prompt Engineering & System Context
+--------------------------------------------------------------------------------
+  - System prompt
+    Pre-configured role: "You are a structural compliance expert
+    assistant for the IFCore platform..."
+
+  - Data injection
+    Inject current project summary, check results, and relevant
+    element data into the prompt context
+
+  - Regulation knowledge
+    Include regulation reference table (EHE, CTE DB HE, DB SUA,
+    Art. 69/128, Decree 141/2012) in system prompt
+
+  - Token management
+    Truncate/summarize large result sets to fit within context window
+
+  - Few-shot examples
+    Include 3-5 example Q&A pairs to guide response format and accuracy
+
+3.3. Retrieval-Augmented Generation (RAG) — Future
+--------------------------------------------------------------------------------
+  - Regulation document index
+    Embed full regulation texts into a vector store for retrieval
+
+  - IFC schema reference
+    Index IFC schema documentation for entity/property questions
+
+  - Project history
+    Search past project results for comparative analysis
+
+
+================================================================================
+  4. USER INTERFACE FEATURES
+================================================================================
+
+4.1. Chat Widget
+--------------------------------------------------------------------------------
+  - Gradio ChatInterface
+    Use gr.Chatbot + gr.Textbox (already in place) with streaming responses
+
+  - Markdown rendering
+    Support bold, italic, bullet lists, code blocks, and tables in responses
+
+  - Streaming output
+    Real-time token-by-token streaming for better perceived responsiveness
+
+  - Chat history
+    Scrollable history within the session, auto-scrolls to latest message
+
+  - Clear chat button
+    Reset conversation while keeping the project data loaded
+
+  - Copy response
+    Click to copy any individual response to clipboard
+
+4.2. Quick Action Buttons / Suggested Prompts
+--------------------------------------------------------------------------------
+  - Pre-built queries
+    Show clickable buttons below the chat for common questions
+
+  - Dynamic suggestions
+    After results are loaded, show context-aware suggestions like
+    "Show failed elements" or "Explain wall failures"
+
+  - Category buttons
+    Group suggestions: Summary, Failures, Regulations, Remediation
+
+  Example suggested prompts:
+    [Summary]      "Give me an overall compliance summary"
+    [Failures]     "Which elements failed and why?"
+    [Walls]        "Show all wall check results"
+    [Regulations]  "What does EHE say about beam dimensions?"
+    [Remediation]  "How can I fix the failing elements?"
+    [Report]       "Write a client-ready compliance statement"
+
+4.3. Status Indicators
+--------------------------------------------------------------------------------
+  - Connection status
+    Show if LLM backend is configured and connected
+
+  - Processing indicator
+    Spinner/typing indicator while waiting for LLM response
+
+  - Token usage
+    Optional display of tokens used per response (for cost monitoring)
+
+  - Model badge
+    Show which LLM model is being used (e.g., "GPT-4o")
+
+4.4. Visual Enhancements
+--------------------------------------------------------------------------------
+  - Themed chat bubbles
+    Match the IFCore purple/gradient branding
+
+  - Status pills in responses
+    Show colored PASS/FAIL/WARN badges inline in chat responses
+
+  - Inline tables
+    Render element results as HTML tables within chat messages
+
+  - Element links
+    Clickable element references that highlight the element
+    in the 3D Viewer tab
+
+  - Responsive layout
+    Chat interface works well on both desktop and tablet
+
+
+================================================================================
+  5. DATA PIPELINE FEATURES
+================================================================================
+
+5.1. Context Builder
+--------------------------------------------------------------------------------
+  - Project serialization
+    Convert Project object to concise JSON summary for LLM context
+
+  - Smart truncation
+    For large models (1000+ elements), summarize by team/status
+    instead of listing all
+
+  - Element detail on demand
+    When user asks about specific elements, fetch and inject
+    only those details
+
+  - Check metadata
+    Include check names, team names, and regulation references in context
+
+5.2. Query Classification
+--------------------------------------------------------------------------------
+  - Intent detection
+    Classify user queries: summary, drill-down, regulation,
+    remediation, export, general
+
+  - Entity extraction
+    Detect element types (wall, beam, column), team names,
+    check names, status values
+
+  - Routing
+    Route simple lookups to rule-based handlers;
+    complex questions to LLM
+
+
+================================================================================
+  6. SECURITY & CONFIGURATION FEATURES
+================================================================================
+
+6.1. Security
+--------------------------------------------------------------------------------
+  - API key encryption
+    Store keys in .env file, never log or expose in UI
+
+  - Input sanitization
+    Prevent prompt injection attacks in user messages
+
+  - Rate limiting
+    Optional rate limiting for API calls (configurable in config.py)
+
+  - No data leakage
+    IFC model data stays local; only structured summaries sent to LLM
+
+  - Audit logging
+    Log chat interactions for compliance auditing (optional)
+
+6.2. Configuration (config.py)
+--------------------------------------------------------------------------------
+  Setting                       Description                         Default
+  --------                      -----------                         -------
+  CHAT_ENABLED                  Enable/disable AI chat              True
+  CHAT_PROVIDER                 LLM provider                        "openai"
+  CHAT_MODEL                    Model identifier                    "gpt-4o"
+  CHAT_API_KEY_ENV              Env variable name for API key       "OPENAI_API_KEY"
+  CHAT_TEMPERATURE              Response temperature                0.2
+  CHAT_MAX_TOKENS               Max response tokens                 2048
+  CHAT_SYSTEM_PROMPT            Path to system prompt file          "prompts/system.txt"
+  CHAT_MAX_CONTEXT_ELEMENTS     Max elements to include in context  200
+  CHAT_FALLBACK_MODE            Use rule-based mode if no API key   True
+
+
+================================================================================
+  7. ERROR HANDLING FEATURES
+================================================================================
+
+  - No model loaded
+    "Please upload and run an IFC check first so I have data
+    to reason about."
+
+  - API key missing
+    "AI chat requires an API key. Add OPENAI_API_KEY to your .env
+    file. Using basic mode instead."
+
+  - API error
+    "I'm having trouble connecting to the AI service. Here's what
+    I can tell you from the data..." (falls back to rule-based)
+
+  - Rate limit exceeded
+    "API rate limit reached. Please wait a moment and try again."
+
+  - Context too large
+    Auto-summarize results; notify user that some detail was omitted
+
+  - Timeout
+    "The request timed out. Let me try a shorter answer..."
+    (retry with reduced context)
+
+
+================================================================================
+  8. ARCHITECTURE SUMMARY
+================================================================================
+
+  +---------------------------------------------------+
+  |                   Gradio UI                        |
+  |  +----------+  +----------+  +--------------+     |
+  |  | Chatbot  |  | Textbox  |  | Quick Action |     |
+  |  | (history)|  | (input)  |  |   Buttons    |     |
+  |  +----+-----+  +----+-----+  +------+-------+     |
+  |       +---------------+-------------+              |
+  |                       v                            |
+  |              +-----------------+                   |
+  |              |  Chat Handler   |                   |
+  |              |  (on_chat_msg)  |                   |
+  |              +--------+--------+                   |
+  +-----------------------+---------------------------+
+                          v
+              +--------------------+
+              |  Query Classifier  |
+              |  (intent + entity) |
+              +---------+----------+
+                        v
+           +------------------------+
+           |   Context Builder      |
+           |  (Project -> LLM ctx)  |
+           +-----------+------------+
+                       v
+      +--------------------------------+
+      |      LLM Provider Layer        |
+      |  +--------+ +------+ +------+  |
+      |  | OpenAI | |Gemini| |Local |  |
+      |  +--------+ +------+ +------+  |
+      +---------------+----------------+
+                      v
+             +------------------+
+             |  Response        |
+             |  Formatter       |
+             |  (Markdown +     |
+             |   status pills)  |
+             +------------------+
+
+
+================================================================================
+  9. IMPLEMENTATION PHASES
+================================================================================
+
+Phase 1 — Rule-Based Enhancement (No LLM Required)
+--------------------------------------------------------------------------------
+  - Replace current stub with intelligent data-lookup handlers
+  - Support summaries, team drill-downs, element queries by parsing keywords
+  - Add quick action buttons for common queries
+  - Improve chat UI styling to match IFCore branding
+
+Phase 2 — LLM Integration (Core AI)
+--------------------------------------------------------------------------------
+  - Add OpenAI / Gemini client with .env-based API key
+  - Build context serializer (Project -> prompt context)
+  - Write system prompt with regulation knowledge
+  - Implement streaming responses
+  - Add fallback to Phase 1 mode when no API key is present
+
+Phase 3 — Advanced Features
+--------------------------------------------------------------------------------
+  - Query classification and intent routing
+  - Dynamic suggested prompts based on results
+  - Inline status pills and HTML table responses
+  - Element-to-3D-Viewer cross-linking
+  - Token usage monitoring
+
+Phase 4 — RAG & Knowledge Base
+--------------------------------------------------------------------------------
+  - Embed full regulation documents for retrieval
+  - Index IFC schema documentation
+  - Support multi-project history queries
+  - Add audit logging for compliance
+
+
+================================================================================
+  10. DEPENDENCIES & INTEGRATION POINTS
+================================================================================
+
+Existing Components Used
+--------------------------------------------------------------------------------
+  Component                               Usage
+  ---------                               -----
+  models.Project                          Access all compliance data
+  models.CheckResult / ElementResult      Element-level result details
+  orchestrator.run_compliance_check()     Re-run checks if needed
+  report_engine                           Generate formatted reports
+  ifc_viewer                              Cross-reference with 3D view
+  config.py                               Central configuration
+  teams/                                  Team names and check functions
+
+New Dependencies Required
+--------------------------------------------------------------------------------
+  Package                 Purpose
+  -------                 -------
+  openai                  OpenAI API client (GPT-4o)
+  google-generativeai     Google Gemini client (alternative)
+  tiktoken                Token counting for context management
+  python-dotenv           Already installed — .env key management
+
+
+================================================================================
+  11. SUCCESS METRICS
+================================================================================
+
+  Metric                Target
+  ------                ------
+  Response accuracy     >90% factually correct answers about loaded
+                        compliance data
+  Response time         <3 seconds for data lookups;
+                        <8 seconds for LLM responses
+  User adoption         >60% of users interact with chat after
+                        running checks
+  Error rate            <2% of queries result in unhandled errors
+  Fallback coverage     Rule-based mode handles >70% of common
+                        queries without LLM
+
+
+================================================================================
+  END OF DOCUMENT
+================================================================================

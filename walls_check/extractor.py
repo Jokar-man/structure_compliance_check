@@ -70,7 +70,7 @@ def get_container_storey(wall):
 
 
 def get_quantities(wall):
-    qtos = pset.get_quantities(wall) or {}
+    qtos = element.get_psets(wall, qtos_only=True) or {}
     for name in QSET_CANDIDATES:
         if name in qtos:
             return name, qtos[name]
@@ -185,8 +185,8 @@ def extract_walls(model):
         wtype = get_wall_type(w)
 
         qset_name, q = get_quantities(w)
-        psets_inst = pset.get_psets(w) or {}
-        psets_type = pset.get_psets(wtype) or {} if wtype else {}
+        psets_inst = element.get_psets(w) or {}
+        psets_type = element.get_psets(wtype) or {} if wtype else {}
 
         mat_inst = extract_material_info(w)
         mat_type = extract_material_info(wtype) if wtype else {"MaterialName": None, "LayerNames": [], "LayerThicknesses": [], "TotalLayerThickness": None}
@@ -241,7 +241,7 @@ def extract_walls(model):
             # raw for any future rules
             "Psets_Instance": psets_inst,
             "Psets_Type": psets_type,
-            "Qtos_All": pset.get_quantities(w) or {},
+            "Qtos_All": element.get_psets(w, qtos_only=True) or {},
         }
 
         out.append(row)

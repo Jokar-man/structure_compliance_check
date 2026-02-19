@@ -6,59 +6,82 @@ Checks:
 """
 
 import sys
-from pathlib import Path
-
-_BEAM_SRC = str(Path(__file__).resolve().parent.parent / "beam_check" / "src")
-if _BEAM_SRC not in sys.path:
-    sys.path.insert(0, _BEAM_SRC)
-
-from ifc_checker import check_column_min_dimension as _raw_column_check
+import ifcopenshell
+import ifcopenshell.util.element
 
 
-def _parse_line(line: str, required_value: str) -> dict:
-    """Parse a '[PASS]/[FAIL]/[???] IfcColumn 'Name': detail' line → IFCore dict."""
-    check_status = "blocked"
-    if line.startswith("[PASS]"):
-        check_status = "pass"
-    elif line.startswith("[FAIL]"):
-        check_status = "fail"
+# ── Private helpers ────────────────────────────────────────────────────────────
 
-    body = line.split("] ", 1)[-1] if "] " in line else line
-    parts = body.split(":", 1)
-    element_desc = parts[0].strip()
-    actual = parts[1].strip() if len(parts) > 1 else None
+def _get_pset_value(elem, pset_name, prop_name):
+    try:
+        psets = ifcopenshell.util.element.get_psets(elem)
+        if pset_name in psets and prop_name in psets[pset_name]:
+            v = psets[pset_name][prop_name]
+            if v is not None and v != "":
+                return v
+    except Exception:
+        pass
+    return None
 
-    element_name = element_desc
-    if "'" in element_desc:
-        element_name = element_desc.split("'")[1] if len(element_desc.split("'")) > 1 else element_desc
 
-    comment = None
-    if check_status == "fail":
-        comment = f"Column too narrow — {actual}" if actual else "Check failed"
-    elif check_status == "blocked":
-        comment = actual or "Dimension data missing"
+def _to_mm(value):
+    if value is None:
+        return None
+    return round(value) if value > 100 else round(value * 1000)
 
-    return {
-        "element_id":        None,
-        "element_type":      "IfcColumn",
-        "element_name":      element_name,
-        "element_name_long": f"{element_name} (IfcColumn)" if element_name else None,
-        "check_status":      check_status,
-        "actual_value":      actual,
-        "required_value":    required_value,
-        "comment":           comment,
-        "log":               None,
-    }
 
+# ── Check functions (IFCore contract) ─────────────────────────────────────────
 
 def check_column_min_dimension(model, min_dim_mm=250):
     """EHE — smallest cross-section side of a column ≥ 250 mm."""
-    lines = _raw_column_check(model, min_dim_mm=min_dim_mm)
-    return [_parse_line(l, f"≥ {min_dim_mm} mm") for l in lines]
+    results = []
+    for col in model.by_type("IfcColumn"):
+        name = col.Name or f"IfcColumn #{col.id()}"
+        w = (
+            _get_pset_value(col, "PSet_Revit_Type_Dimensions", "b")
+            or _get_pset_value(col, "PSet_Revit_Type_Dimensions", "bf")
+            or _get_pset_value(col, "Qto_ColumnBaseQuantities", "Width")
+        )
+        d = (
+            _get_pset_value(col, "PSet_Revit_Type_Dimensions", "d")
+            or _get_pset_value(col, "PSet_Revit_Type_Dimensions", "h")
+            or _get_pset_value(col, "Qto_ColumnBaseQuantities", "Depth")
+        )
+
+        smallest = None
+        if w is not None and d is not None:
+            smallest = min(_to_mm(w), _to_mm(d))
+        elif w is not None:
+            smallest = _to_mm(w)
+        elif d is not None:
+            smallest = _to_mm(d)
+
+        if smallest is not None:
+            status = "pass" if smallest >= min_dim_mm else "fail"
+            comment = (f"EHE satisfied: {smallest} mm ≥ {min_dim_mm} mm"
+                       if status == "pass"
+                       else f"Column too narrow: {smallest} mm < minimum {min_dim_mm} mm")
+            actual = f"{smallest} mm"
+        else:
+            status = "blocked"
+            comment = "Dimensions not found in PSet_Revit_Type_Dimensions or Qto_ColumnBaseQuantities"
+            actual = None
+
+        results.append({
+            "element_id":        col.GlobalId,
+            "element_type":      "IfcColumn",
+            "element_name":      name,
+            "element_name_long": f"{name} — EHE Column Min Dimension",
+            "check_status":      status,
+            "actual_value":      actual,
+            "required_value":    f"≥ {min_dim_mm} mm",
+            "comment":           comment,
+            "log":               None,
+        })
+    return results
 
 
 if __name__ == "__main__":
-    import ifcopenshell
     ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
     print("Loading:", ifc_path)
     _model = ifcopenshell.open(ifc_path)

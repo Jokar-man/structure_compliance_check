@@ -7,68 +7,120 @@ Checks:
 """
 
 import sys
-from pathlib import Path
-
-_BEAM_SRC = str(Path(__file__).resolve().parent.parent / "beam_check" / "src")
-if _BEAM_SRC not in sys.path:
-    sys.path.insert(0, _BEAM_SRC)
-
-from ifc_checker import (
-    check_beam_depth as _raw_beam_depth,
-    check_beam_width as _raw_beam_width,
-)
+import ifcopenshell
+import ifcopenshell.util.element
 
 
-def _parse_line(line: str, element_type: str, required_value: str) -> dict:
-    """Parse a '[PASS]/[FAIL]/[???] IfcType 'Name': detail' line → IFCore dict."""
-    check_status = "blocked"
-    if line.startswith("[PASS]"):
-        check_status = "pass"
-    elif line.startswith("[FAIL]"):
-        check_status = "fail"
+# ── Private helpers ────────────────────────────────────────────────────────────
 
-    body = line.split("] ", 1)[-1] if "] " in line else line
-    parts = body.split(":", 1)
-    element_desc = parts[0].strip()
-    actual = parts[1].strip() if len(parts) > 1 else None
+def _get_pset_value(elem, pset_name, prop_name):
+    try:
+        psets = ifcopenshell.util.element.get_psets(elem)
+        if pset_name in psets and prop_name in psets[pset_name]:
+            v = psets[pset_name][prop_name]
+            if v is not None and v != "":
+                return v
+    except Exception:
+        pass
+    return None
 
-    element_name = element_desc
-    if "'" in element_desc:
-        element_name = element_desc.split("'")[1] if len(element_desc.split("'")) > 1 else element_desc
 
-    comment = None
-    if check_status == "fail":
-        comment = f"Below minimum — {actual}" if actual else "Check failed"
-    elif check_status == "blocked":
-        comment = actual or "Property data missing"
+def _search_psets(elem, prop_name):
+    try:
+        psets = ifcopenshell.util.element.get_psets(elem)
+        for props in psets.values():
+            if isinstance(props, dict) and prop_name in props:
+                v = props[prop_name]
+                if v is not None and v != "" and isinstance(v, (int, float)):
+                    return v
+    except Exception:
+        pass
+    return None
 
-    return {
-        "element_id":        None,
-        "element_type":      element_type,
-        "element_name":      element_name,
-        "element_name_long": f"{element_name} ({element_type})" if element_name else None,
-        "check_status":      check_status,
-        "actual_value":      actual,
-        "required_value":    required_value,
-        "comment":           comment,
-        "log":               None,
-    }
 
+def _to_mm(value):
+    if value is None:
+        return None
+    return round(value) if value > 100 else round(value * 1000)
+
+
+# ── Check functions (IFCore contract) ─────────────────────────────────────────
 
 def check_beam_depth(model, min_depth_mm=200):
     """EHE / DB SE — beam depth ≥ 200 mm."""
-    lines = _raw_beam_depth(model, min_depth_mm=min_depth_mm)
-    return [_parse_line(l, "IfcBeam", f"≥ {min_depth_mm} mm") for l in lines]
+    results = []
+    for beam in model.by_type("IfcBeam"):
+        name = beam.Name or f"IfcBeam #{beam.id()}"
+        depth = (
+            _get_pset_value(beam, "PSet_Revit_Type_Dimensions", "d")
+            or _get_pset_value(beam, "Qto_BeamBaseQuantities", "Depth")
+            or _get_pset_value(beam, "Pset_BeamCommon", "Depth")
+            or _search_psets(beam, "d")
+        )
+        if depth is not None:
+            depth_mm = _to_mm(depth)
+            status = "pass" if depth_mm >= min_depth_mm else "fail"
+            comment = (f"EHE/DB SE satisfied: {depth_mm} mm ≥ {min_depth_mm} mm"
+                       if status == "pass"
+                       else f"Depth {depth_mm} mm < minimum {min_depth_mm} mm")
+            actual = f"{depth_mm} mm"
+        else:
+            status = "blocked"
+            comment = "Depth not found in PSet_Revit_Type_Dimensions.d, Qto_BeamBaseQuantities.Depth, or Pset_BeamCommon"
+            actual = None
+
+        results.append({
+            "element_id":        beam.GlobalId,
+            "element_type":      "IfcBeam",
+            "element_name":      name,
+            "element_name_long": f"{name} — EHE Beam Depth",
+            "check_status":      status,
+            "actual_value":      actual,
+            "required_value":    f"≥ {min_depth_mm} mm",
+            "comment":           comment,
+            "log":               None,
+        })
+    return results
 
 
 def check_beam_width(model, min_width_mm=150):
     """EHE / DB SE — beam width (flange) ≥ 150 mm."""
-    lines = _raw_beam_width(model, min_width_mm=min_width_mm)
-    return [_parse_line(l, "IfcBeam", f"≥ {min_width_mm} mm") for l in lines]
+    results = []
+    for beam in model.by_type("IfcBeam"):
+        name = beam.Name or f"IfcBeam #{beam.id()}"
+        width = (
+            _get_pset_value(beam, "PSet_Revit_Type_Dimensions", "bf")
+            or _get_pset_value(beam, "PSet_Revit_Type_Dimensions", "tw")
+            or _get_pset_value(beam, "Qto_BeamBaseQuantities", "Width")
+            or _get_pset_value(beam, "Pset_BeamCommon", "Width")
+        )
+        if width is not None:
+            width_mm = _to_mm(width)
+            status = "pass" if width_mm >= min_width_mm else "fail"
+            comment = (f"EHE/DB SE satisfied: {width_mm} mm ≥ {min_width_mm} mm"
+                       if status == "pass"
+                       else f"Width {width_mm} mm < minimum {min_width_mm} mm")
+            actual = f"{width_mm} mm"
+        else:
+            status = "blocked"
+            comment = "Width not found in PSet_Revit_Type_Dimensions.bf/tw, Qto_BeamBaseQuantities.Width, or Pset_BeamCommon"
+            actual = None
+
+        results.append({
+            "element_id":        beam.GlobalId,
+            "element_type":      "IfcBeam",
+            "element_name":      name,
+            "element_name_long": f"{name} — EHE Beam Width",
+            "check_status":      status,
+            "actual_value":      actual,
+            "required_value":    f"≥ {min_width_mm} mm",
+            "comment":           comment,
+            "log":               None,
+        })
+    return results
 
 
 if __name__ == "__main__":
-    import ifcopenshell
     ifc_path = sys.argv[1] if len(sys.argv) > 1 else "data/01_Duplex_Apartment.ifc"
     print("Loading:", ifc_path)
     _model = ifcopenshell.open(ifc_path)

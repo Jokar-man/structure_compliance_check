@@ -49,27 +49,36 @@ description of what you're building. It helps you think before you code.
 # F<N>: <Feature Name>
 
 ## What Are We Building?
-
 <!-- Explain the goal in plain language. What problem does this solve?
      What will users be able to do after this is built? -->
 
 ## What Does "Done" Look Like?
-
 - [ ] ...
 <!-- A checklist. When every box is ticked, the feature is done. -->
 
 ## How It Works
-
 <!-- Brief description of the approach. What IFC data do we need?
      What does the check function do? -->
 
 ## Phases (if it's a big feature)
-
 - Phase A: ...
 - Phase B: ...
 ```
 
 Don't overthink this. A few sentences per section is fine. Skip "Phases" for small checks.
+
+## Adding a Frontend Feature
+
+For platform features (not check functions), follow the React module pattern:
+
+1. Create `src/features/<name>/` with component(s) + hook(s)
+2. Create `src/routes/<route>.tsx` using `createFileRoute`
+3. If it needs new state → add a slice to `stores/slices/` + register in `store.ts`
+4. If it needs a new API call → add to `lib/api.ts`
+5. If it needs a new backend endpoint → follow the async job recipe in frontend-architecture.md
+
+**Rules:** Don't import from other feature modules. Read/write state through
+`useStore`. Call backend through `lib/api.ts`. One folder, one concern.
 
 ## After You Finish
 

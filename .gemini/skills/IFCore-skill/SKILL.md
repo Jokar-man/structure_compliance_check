@@ -42,7 +42,6 @@ Welcome the user. Introduce yourself as their IFCore development assistant. Expl
 
 6. **How to install & update this skill.** Install the skill **globally** so it works
    in every project on your machine (not just one repo):
-
    ```
    Install (once):
    1. Clone: git clone https://github.com/SerjoschDuering/iaac-bimwise-skills.git
@@ -61,7 +60,6 @@ Welcome the user. Introduce yourself as their IFCore development assistant. Expl
    2. git pull
    3. Start a fresh chat session — the AI reloads the updated instructions
    ```
-
    If you're not sure whether your skill is up to date, ask your AI:
    "What board meeting is the latest in your IFCore skill?" and compare with your team.
 
@@ -101,7 +99,6 @@ def check_door_width(model, min_width_mm=800):
 ```
 
 **Rules:**
-
 - Prefix: `check_` — the platform discovers functions by this prefix
 - First argument: `model` (an `ifcopenshell.file` object) — always
 - Optional keyword args after `model` are fine (e.g. `min_width_mm=800`)
@@ -123,7 +120,6 @@ your-team-repo/
 ```
 
 **File naming:** `checker_<topic>.py` — group related checks by topic. Examples:
-
 - `checker_doors.py` — door width, clearance, accessibility
 - `checker_walls.py` — thickness, fire rating, insulation
 - `checker_stairs.py` — riser height, tread length, handrails
@@ -134,7 +130,6 @@ The platform scans **all `checker_*.py` files directly inside `tools/`** (no sub
 **Important:** Only `checker_*.py` files are scanned. Helper files (e.g. `tools/utils.py`) are fine for shared code but won't be scanned for `check_*` functions — import them from your `checker_*.py` files.
 
 **Local testing:** Run your checks locally before pushing:
-
 ```python
 import ifcopenshell
 
@@ -144,23 +139,21 @@ results = check_door_width(model)
 for r in results:
     print(f"[{r['check_status'].upper()}] {r['element_name']}: {r['actual_value']} (req: {r['required_value']})")
 ```
-
 The `model` object is exactly what the platform passes to your functions.
 
 ### 3. Issue Reporting Contract — MANDATORY
 
 When your AI agent encounters any of these during development, it **MUST** file an issue:
 
-| Trigger                                        | Label             |
-| ---------------------------------------------- | ----------------- |
-| Contract unclear or ambiguous                  | `contract-gap`    |
-| Skill instructions don't match reality         | `skill-drift`     |
-| Found a workaround for a known limitation      | `learning`        |
-| Schema format needs a new field                | `schema-change`   |
+| Trigger | Label |
+|---|---|
+| Contract unclear or ambiguous | `contract-gap` |
+| Skill instructions don't match reality | `skill-drift` |
+| Found a workaround for a known limitation | `learning` |
+| Schema format needs a new field | `schema-change` |
 | Team code works locally but breaks on platform | `integration-bug` |
 
 **How to file:**
-
 ```bash
 gh issue create \
   --repo SerjoschDuering/iaac-bimwise-skills \
@@ -191,7 +184,6 @@ AI agents: if you detect a contract mismatch during development, file the issue 
 IFCore is building an AI-powered building compliance checker. **5 teams** each develop in their **own GitHub repo** (cloned from a shared template). Teams write `check_*` functions independently — the platform integrates them automatically.
 
 **How integration works:**
-
 1. Each team pushes `checker_*.py` files to their own repo under `tools/`
 2. The **platform repo** (`ifcore-platform`) pulls all 5 team repos as **git submodules**
 3. `deploy.sh` flattens submodules into `teams/<team-repo>/tools/` (real files, not symlinks — we don't configure HF to resolve submodules)
@@ -200,14 +192,14 @@ IFCore is building an AI-powered building compliance checker. **5 teams** each d
 
 **Deployment architecture:**
 
-| Component                                  | Deploys to                              | Who manages |
-| ------------------------------------------ | --------------------------------------- | ----------- |
-| Team check functions (`checker_*.py`)      | Own GitHub repo → pulled into platform  | Each team   |
-| Backend + orchestrator (`ifcore-platform`) | **HuggingFace Space** (Docker, FastAPI) | Captains    |
-| Frontend (dashboard, 3D viewer, upload)    | **Cloudflare Pages**                    | Captains    |
-| API gateway (async jobs, proxies to HF)    | **Cloudflare Worker**                   | Captains    |
-| File storage (IFC uploads)                 | **Cloudflare R2** (S3-compatible)       | Captains    |
-| Results database                           | **Cloudflare D1** (SQLite)              | Captains    |
+| Component | Deploys to | Who manages |
+|-----------|-----------|-------------|
+| Team check functions (`checker_*.py`) | Own GitHub repo → pulled into platform | Each team |
+| Backend + orchestrator (`ifcore-platform`) | **HuggingFace Space** (Docker, FastAPI) | Captains |
+| Frontend (dashboard, 3D viewer, upload) | **Cloudflare Pages** | Captains |
+| API gateway (async jobs, proxies to HF) | **Cloudflare Worker** | Captains |
+| File storage (IFC uploads) | **Cloudflare R2** (S3-compatible) | Captains |
+| Results database | **Cloudflare D1** (SQLite) | Captains |
 
 **Flow:** User uploads IFC → stored in R2 → frontend calls CF Worker → Worker proxies to HF Space → orchestrator runs all `check_*` functions → results posted back to Worker → stored in D1 → frontend polls and displays.
 

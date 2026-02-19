@@ -32,20 +32,19 @@ def check_door_width(model, min_width_mm=800):
 
 **Required dict fields** (teams produce these — `id` and `check_result_id` are added by the orchestrator):
 
-| Field               | Type           | Description                                                             |
-| ------------------- | -------------- | ----------------------------------------------------------------------- |
-| `element_id`        | string \| null | IFC GlobalId                                                            |
-| `element_type`      | string \| null | e.g. `"IfcDoor"`, `"IfcWall"`                                           |
-| `element_name`      | string \| null | Short name, e.g. `"Door #42"`                                           |
-| `element_name_long` | string \| null | Detailed name with context, e.g. `"Door #42 (Level 1, Zone A)"`         |
-| `check_status`      | string         | **`pass`** \| **`fail`** \| **`warning`** \| **`blocked`** \| **`log`** |
-| `actual_value`      | string \| null | What was found, e.g. `"750 mm"`                                         |
-| `required_value`    | string \| null | What the regulation requires, e.g. `"800 mm"`                           |
-| `comment`           | string \| null | Human-readable explanation (why it failed, what's wrong)                |
-| `log`               | string \| null | Debug/trace info (optional, for troubleshooting)                        |
+| Field | Type | Description |
+|-------|------|-------------|
+| `element_id` | string \| null | IFC GlobalId |
+| `element_type` | string \| null | e.g. `"IfcDoor"`, `"IfcWall"` |
+| `element_name` | string \| null | Short name, e.g. `"Door #42"` |
+| `element_name_long` | string \| null | Detailed name with context, e.g. `"Door #42 (Level 1, Zone A)"` |
+| `check_status` | string | **`pass`** \| **`fail`** \| **`warning`** \| **`blocked`** \| **`log`** |
+| `actual_value` | string \| null | What was found, e.g. `"750 mm"` |
+| `required_value` | string \| null | What the regulation requires, e.g. `"800 mm"` |
+| `comment` | string \| null | Human-readable explanation (why it failed, what's wrong) |
+| `log` | string \| null | Debug/trace info (optional, for troubleshooting) |
 
 **`check_status` values:**
-
 - `"pass"` — element meets the requirement
 - `"fail"` — element violates the requirement
 - `"warning"` — element is borderline or needs manual review
@@ -66,9 +65,9 @@ Four tables. The frontend reads from these via the CF Worker API.
 
 ```json
 {
-  "id": "string",
-  "name": "string",
-  "team": "string | null",
+  "id":         "string",
+  "name":       "string",
+  "team":       "string | null",
   "created_at": "integer"
 }
 ```
@@ -77,15 +76,15 @@ Four tables. The frontend reads from these via the CF Worker API.
 
 ```json
 {
-  "id": "string",
-  "user_id": "string",
-  "name": "string",
-  "file_url": "string",
-  "ifc_schema": "string | null",
-  "region": "string | null",
+  "id":            "string",
+  "user_id":       "string",
+  "name":          "string",
+  "file_url":      "string",
+  "ifc_schema":    "string | null",
+  "region":        "string | null",
   "building_type": "string | null",
-  "metadata": "string | null (JSON)",
-  "created_at": "integer"
+  "metadata":      "string | null (JSON)",
+  "created_at":    "integer"
 }
 ```
 
@@ -93,15 +92,15 @@ Four tables. The frontend reads from these via the CF Worker API.
 
 ```json
 {
-  "id": "string",
-  "project_id": "string",
-  "job_id": "string",
-  "check_name": "string",
-  "team": "string",
-  "status": "string (running | pass | fail | unknown | error)",
-  "summary": "string",
-  "has_elements": "integer (0 | 1)",
-  "created_at": "integer"
+  "id":            "string",
+  "project_id":    "string",
+  "job_id":        "string",
+  "check_name":    "string",
+  "team":          "string",
+  "status":        "string (running | pass | fail | unknown | error)",
+  "summary":       "string",
+  "has_elements":  "integer (0 | 1)",
+  "created_at":    "integer"
 }
 ```
 
@@ -115,17 +114,17 @@ Four tables. The frontend reads from these via the CF Worker API.
 
 ```json
 {
-  "id": "string",
-  "check_result_id": "string",
-  "element_id": "string | null",
-  "element_type": "string | null",
-  "element_name": "string | null",
-  "element_name_long": "string | null",
-  "check_status": "string (pass | fail | warning | blocked | log)",
-  "actual_value": "string | null",
-  "required_value": "string | null",
-  "comment": "string | null",
-  "log": "string | null"
+  "id":               "string",
+  "check_result_id":  "string",
+  "element_id":       "string | null",
+  "element_type":     "string | null",
+  "element_name":     "string | null",
+  "element_name_long":"string | null",
+  "check_status":     "string (pass | fail | warning | blocked | log)",
+  "actual_value":     "string | null",
+  "required_value":   "string | null",
+  "comment":          "string | null",
+  "log":              "string | null"
 }
 ```
 

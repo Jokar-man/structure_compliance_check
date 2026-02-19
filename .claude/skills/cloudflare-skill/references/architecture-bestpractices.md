@@ -31,40 +31,47 @@ doesn't, it becomes worse than having no docs at all.
 # Architecture
 
 ## Overview
+
 One paragraph explaining what the app does and how it's deployed.
 
 ## System Diagram
+
 [ASCII or Mermaid diagram showing services and data flow]
 
 ## Services Used
-| Service | Purpose | Binding Name |
-|---------|---------|-------------|
-| Workers | API backend | - |
-| D1 | User data, items | DB |
-| R2 | File uploads | BUCKET |
-| KV | Session cache | CACHE |
+
+| Service | Purpose          | Binding Name |
+| ------- | ---------------- | ------------ |
+| Workers | API backend      | -            |
+| D1      | User data, items | DB           |
+| R2      | File uploads     | BUCKET       |
+| KV      | Session cache    | CACHE        |
 
 ## Project Structure
+
 [Folder tree showing where things live]
 
 ## Data Flow
+
 1. User submits form → Frontend sends POST to /api/items
 2. Worker validates input → Saves to D1 → Returns response
 3. Frontend updates cache → Re-renders list
 
 ## Domain Map
-| Domain | What It Handles | DB Tables |
-|--------|----------------|-----------|
-| users | Auth, profiles | users |
-| items | CRUD for items | items |
+
+| Domain  | What It Handles | DB Tables          |
+| ------- | --------------- | ------------------ |
+| users   | Auth, profiles  | users              |
+| items   | CRUD for items  | items              |
 | uploads | File management | uploads (metadata) |
 
 ## Environment Setup
-| Environment | API URL | Database |
-|-------------|---------|----------|
-| Local dev | localhost:8787 | D1 local |
-| Preview | preview.workers.dev | D1 preview |
-| Production | api.myapp.com | D1 production |
+
+| Environment | API URL             | Database      |
+| ----------- | ------------------- | ------------- |
+| Local dev   | localhost:8787      | D1 local      |
+| Preview     | preview.workers.dev | D1 preview    |
+| Production  | api.myapp.com       | D1 production |
 ```
 
 ### Example Diagram (Mermaid)
@@ -94,19 +101,19 @@ graph LR
 
 Pick one column. Everything in a column works together out of the box.
 
-| Layer | JS/TS Stack | Python Stack |
-|-------|------------|-------------|
-| **API framework** | Hono | FastAPI |
-| **Database** | D1 + Drizzle ORM | D1 (raw SQL via bindings) |
-| **Validation** | Zod (auto-generated from Drizzle) | Pydantic models |
-| **Frontend** | React + Vite | React + Vite (same frontend) |
-| **Routing** | TanStack Router (file-based) | TanStack Router |
-| **Server state** | TanStack Query (React Query) | TanStack Query |
-| **Client state** | Zustand | Zustand |
-| **Auth** | Better Auth | Better Auth or custom JWT |
-| **Storage** | R2 | R2 |
-| **Styling** | Tailwind CSS | Tailwind CSS |
-| **Deploy** | Wrangler CLI or GitHub Actions | pywrangler or GitHub Actions |
+| Layer             | JS/TS Stack                       | Python Stack                 |
+| ----------------- | --------------------------------- | ---------------------------- |
+| **API framework** | Hono                              | FastAPI                      |
+| **Database**      | D1 + Drizzle ORM                  | D1 (raw SQL via bindings)    |
+| **Validation**    | Zod (auto-generated from Drizzle) | Pydantic models              |
+| **Frontend**      | React + Vite                      | React + Vite (same frontend) |
+| **Routing**       | TanStack Router (file-based)      | TanStack Router              |
+| **Server state**  | TanStack Query (React Query)      | TanStack Query               |
+| **Client state**  | Zustand                           | Zustand                      |
+| **Auth**          | Better Auth                       | Better Auth or custom JWT    |
+| **Storage**       | R2                                | R2                           |
+| **Styling**       | Tailwind CSS                      | Tailwind CSS                 |
+| **Deploy**        | Wrangler CLI or GitHub Actions    | pywrangler or GitHub Actions |
 
 ---
 
@@ -150,12 +157,12 @@ src/
 
 If a file exceeds 400 lines, it's doing too much. Split it:
 
-| Too big | Split into |
-|---------|-----------|
-| `users.routes.ts` (500 lines) | `users.routes.ts` (CRUD) + `users.admin.routes.ts` (admin-only) |
-| `UserForm.tsx` (400 lines) | `UserForm.tsx` + `UserFormFields.tsx` + `useUserForm.ts` (hook) |
+| Too big                       | Split into                                                            |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `users.routes.ts` (500 lines) | `users.routes.ts` (CRUD) + `users.admin.routes.ts` (admin-only)       |
+| `UserForm.tsx` (400 lines)    | `UserForm.tsx` + `UserFormFields.tsx` + `useUserForm.ts` (hook)       |
 | `users.schema.ts` (350 lines) | `users.schema.ts` (table) + `users.validators.ts` (complex Zod rules) |
-| Giant component with logic | Extract logic into custom hook (`useXxx.ts`) |
+| Giant component with logic    | Extract logic into custom hook (`useXxx.ts`)                          |
 
 ---
 
@@ -163,18 +170,18 @@ If a file exceeds 400 lines, it's doing too much. Split it:
 
 ```typescript
 // BAD - hardcoded values scattered in code
-const API_URL = 'https://my-api.workers.dev'
-const MAX_UPLOAD_SIZE = 5242880
-const ALLOWED_ROLES = ['admin', 'editor']
+const API_URL = "https://my-api.workers.dev";
+const MAX_UPLOAD_SIZE = 5242880;
+const ALLOWED_ROLES = ["admin", "editor"];
 
 // GOOD - centralized constants
 // lib/constants.ts
 export const CONFIG = {
-  API_URL: import.meta.env.VITE_API_URL || '/api',
-  MAX_UPLOAD_SIZE: 5 * 1024 * 1024,  // 5MB
-  ALLOWED_ROLES: ['admin', 'editor'] as const,
+  API_URL: import.meta.env.VITE_API_URL || "/api",
+  MAX_UPLOAD_SIZE: 5 * 1024 * 1024, // 5MB
+  ALLOWED_ROLES: ["admin", "editor"] as const,
   PAGINATION: { DEFAULT_PAGE_SIZE: 20, MAX_PAGE_SIZE: 100 },
-} as const
+} as const;
 
 // GOOD - environment-dependent config
 // wrangler.toml [vars]
@@ -195,7 +202,7 @@ You should NOT put API data in Zustand.
 
 ```typescript
 // This is all you need for server state:
-const { data, isLoading, error } = useItems()   // React Query hook
+const { data, isLoading, error } = useItems(); // React Query hook
 ```
 
 ### Client/UI State (local to the browser) → Zustand
@@ -205,7 +212,7 @@ UI toggles, anything that's NOT from the server.
 
 ```typescript
 // domains/items/items.store.ts
-import { create } from 'zustand'
+import { create } from "zustand";
 
 /**
  * UI state for the items feature.
@@ -214,28 +221,29 @@ import { create } from 'zustand'
  */
 interface ItemsStore {
   // What item is currently selected in the list
-  selectedId: string | null
-  setSelected: (id: string | null) => void
+  selectedId: string | null;
+  setSelected: (id: string | null) => void;
 
   // Active filter for the list view
-  filterStatus: 'all' | 'active' | 'archived'
-  setFilter: (status: 'all' | 'active' | 'archived') => void
+  filterStatus: "all" | "active" | "archived";
+  setFilter: (status: "all" | "active" | "archived") => void;
 
   // Sidebar visibility
-  detailPanelOpen: boolean
-  toggleDetailPanel: () => void
+  detailPanelOpen: boolean;
+  toggleDetailPanel: () => void;
 }
 
 export const useItemsStore = create<ItemsStore>((set) => ({
   selectedId: null,
   setSelected: (id) => set({ selectedId: id }),
 
-  filterStatus: 'all',
+  filterStatus: "all",
   setFilter: (filterStatus) => set({ filterStatus }),
 
   detailPanelOpen: false,
-  toggleDetailPanel: () => set((s) => ({ detailPanelOpen: !s.detailPanelOpen })),
-}))
+  toggleDetailPanel: () =>
+    set((s) => ({ detailPanelOpen: !s.detailPanelOpen })),
+}));
 ```
 
 ### When to Introduce Zustand
@@ -263,43 +271,44 @@ Is the data from your API?
 
 ```typescript
 // API side: validate EVERY input with Zod
-app.post('/items',
-  zValidator('json', insertItemSchema),  // Rejects invalid data before your code runs
+app.post(
+  "/items",
+  zValidator("json", insertItemSchema), // Rejects invalid data before your code runs
   async (c) => {
-    const data = c.req.valid('json')     // Guaranteed to match schema
+    const data = c.req.valid("json"); // Guaranteed to match schema
     // ...
-  }
-)
+  },
+);
 ```
 
 ### Never Trust the Client
 
 ```typescript
 // BAD - trusting client-sent user ID
-app.post('/items', async (c) => {
-  const { userId, title } = await c.req.json()  // Client could send any userId!
-  await db.insert(items).values({ userId, title })
-})
+app.post("/items", async (c) => {
+  const { userId, title } = await c.req.json(); // Client could send any userId!
+  await db.insert(items).values({ userId, title });
+});
 
 // GOOD - get user ID from auth token (server-verified)
-app.post('/items', authMiddleware, async (c) => {
-  const userId = c.get('userId')  // From verified JWT/session
-  const { title } = c.req.valid('json')
-  await db.insert(items).values({ userId, title })
-})
+app.post("/items", authMiddleware, async (c) => {
+  const userId = c.get("userId"); // From verified JWT/session
+  const { title } = c.req.valid("json");
+  await db.insert(items).values({ userId, title });
+});
 ```
 
 ### SQL Injection Protection
 
 ```typescript
 // BAD - string concatenation (SQL injection!)
-await db.prepare(`SELECT * FROM users WHERE id = ${userId}`).run()
+await db.prepare(`SELECT * FROM users WHERE id = ${userId}`).run();
 
 // GOOD - parameterized queries (Drizzle does this automatically)
-await db.select().from(users).where(eq(users.id, userId))
+await db.select().from(users).where(eq(users.id, userId));
 
 // GOOD - parameterized raw SQL
-await db.prepare("SELECT * FROM users WHERE id = ?").bind(userId).run()
+await db.prepare("SELECT * FROM users WHERE id = ?").bind(userId).run();
 ```
 
 ### Other Security Musts
@@ -319,22 +328,22 @@ Write comments that explain **why**, not just what. Assume the reader is new.
 ```typescript
 // BAD - just restates the code
 // Get all items
-const items = await db.select().from(itemsTable).all()
+const items = await db.select().from(itemsTable).all();
 
 // GOOD - explains WHY and gives context
 // Fetch all items from D1. Drizzle ORM generates type-safe SQL.
 // .all() executes the query and returns an array.
-const items = await db.select().from(itemsTable).all()
+const items = await db.select().from(itemsTable).all();
 
 // GOOD - explain the non-obvious
 // Factory function because D1 binding (env.DB) is only available
 // inside request handlers, not at module level — create fresh per request.
-export const createDb = (d1: D1Database) => drizzle(d1, { schema })
+export const createDb = (d1: D1Database) => drizzle(d1, { schema });
 
 // GOOD - explain security logic
 // Verify user owns this item before deleting (prevents other users deleting your data)
-const item = await db.select().from(items).where(eq(items.id, itemId)).get()
-if (!item || item.userId !== userId) return c.json({ error: 'Not found' }, 404)
+const item = await db.select().from(items).where(eq(items.id, itemId)).get();
+if (!item || item.userId !== userId) return c.json({ error: "Not found" }, 404);
 ```
 
 ---
@@ -355,8 +364,8 @@ Every API response uses the same shape. Clients always know what to expect.
 
 ```typescript
 // Type definition
-type ApiResponse<T> = { data: T }
-type ApiError = { error: string }
+type ApiResponse<T> = { data: T };
+type ApiError = { error: string };
 ```
 
 ---
@@ -390,12 +399,14 @@ TanStack Router auto-discovers new route files. The system is designed to grow w
 
 ```typescript
 // BAD - behavior buried in code
-if (userRole === 'admin' || userRole === 'editor') { /* can edit */ }
+if (userRole === "admin" || userRole === "editor") {
+  /* can edit */
+}
 
 // GOOD - configurable permissions
 const PERMISSIONS = {
-  'items:edit': ['admin', 'editor'],
-  'items:delete': ['admin'],
-  'items:view': ['admin', 'editor', 'viewer'],
-} as const
+  "items:edit": ["admin", "editor"],
+  "items:delete": ["admin"],
+  "items:view": ["admin", "editor", "viewer"],
+} as const;
 ```

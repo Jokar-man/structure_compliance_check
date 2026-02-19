@@ -176,3 +176,4 @@ Every reference file contains copy-pasteable code and runnable commands.
 
 6. **Keep ARCHITECTURE.md current.** After adding any new service, domain, or changing
    data flow — update `ARCHITECTURE.md` and its mermaid diagram before moving on.
+

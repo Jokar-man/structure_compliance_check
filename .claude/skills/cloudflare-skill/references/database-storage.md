@@ -2,12 +2,12 @@
 
 ## Decision Matrix
 
-| Need | Service | Free Tier |
-|------|---------|-----------|
-| Relational data, SQL | **D1** (SQLite) | 5M reads/day, 5GB |
-| Files, images, videos | **R2** (S3-compatible) | 10GB, zero egress |
-| Config, sessions, cache | **KV** (key-value) | 100K reads/day |
-| Background jobs | **Queues** | 10K ops/day |
+| Need                    | Service                | Free Tier                        |
+| ----------------------- | ---------------------- | -------------------------------- |
+| Relational data, SQL    | **D1** (SQLite)        | 5M reads/day, 5GB                |
+| Files, images, videos   | **R2** (S3-compatible) | 10GB, zero egress                |
+| Config, sessions, cache | **KV** (key-value)     | 100K reads/day                   |
+| Background jobs         | **Queues**             | 10K ops/day                      |
 | Existing Postgres/MySQL | **Hyperdrive** (proxy) | Included (100K queries/day free) |
 
 ---
@@ -21,13 +21,13 @@ Best for: CRUD apps, user data, relational data under 10GB.
 
 ### Pricing
 
-| | Free | Paid ($5/mo) |
-|---|---|---|
-| Rows read | 5M/day | 25B/month incl, then $0.001/M |
-| Rows written | 100K/day | 50M/month incl, then $1.00/M |
-| Storage | 5GB total | 5GB incl, then $0.75/GB-mo |
-| Max DB size | 500MB | 10GB |
-| Databases/account | 10 | 50,000 |
+|                   | Free      | Paid ($5/mo)                  |
+| ----------------- | --------- | ----------------------------- |
+| Rows read         | 5M/day    | 25B/month incl, then $0.001/M |
+| Rows written      | 100K/day  | 50M/month incl, then $1.00/M  |
+| Storage           | 5GB total | 5GB incl, then $0.75/GB-mo    |
+| Max DB size       | 500MB     | 10GB                          |
+| Databases/account | 10        | 50,000                        |
 
 **Pricing docs:** https://developers.cloudflare.com/d1/platform/pricing/
 
@@ -70,45 +70,52 @@ migrations_dir = "migrations"     # Optional: where migration SQL files live
 
 ```typescript
 // Read
-const { results } = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).all()
+const { results } = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
+  .bind(userId)
+  .all();
 
 // Write
-await c.env.DB.prepare("INSERT INTO users (name, email) VALUES (?, ?)").bind(name, email).run()
+await c.env.DB.prepare("INSERT INTO users (name, email) VALUES (?, ?)")
+  .bind(name, email)
+  .run();
 
 // First row
-const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(1).first()
+const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
+  .bind(1)
+  .first();
 
 // Batch (multiple statements in one round-trip)
 await c.env.DB.batch([
   c.env.DB.prepare("INSERT INTO users (name) VALUES (?)").bind("Alice"),
   c.env.DB.prepare("INSERT INTO users (name) VALUES (?)").bind("Bob"),
-])
+]);
 ```
 
 ### Usage with Drizzle ORM (Recommended for JS/TS)
 
 ```typescript
 // db/index.ts
-import { drizzle } from 'drizzle-orm/d1'
-import * as schema from './schema'
-export const createDb = (d1: D1Database) => drizzle(d1, { schema })
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "./schema";
+export const createDb = (d1: D1Database) => drizzle(d1, { schema });
 
 // Usage in route
-const db = createDb(c.env.DB)
-const users = await db.select().from(usersTable).all()
-await db.insert(usersTable).values({ name: 'Alice' }).returning()
+const db = createDb(c.env.DB);
+const users = await db.select().from(usersTable).all();
+await db.insert(usersTable).values({ name: "Alice" }).returning();
 ```
 
 Drizzle config for D1:
+
 ```typescript
 // drizzle.config.ts
-import { defineConfig } from 'drizzle-kit'
+import { defineConfig } from "drizzle-kit";
 export default defineConfig({
-  schema: './src/domains/**/*.schema.ts',
-  out: './migrations',
-  dialect: 'sqlite',
-  driver: 'd1-http',
-})
+  schema: "./src/domains/**/*.schema.ts",
+  out: "./migrations",
+  dialect: "sqlite",
+  driver: "d1-http",
+});
 ```
 
 **Drizzle + D1 docs:** https://developers.cloudflare.com/d1/tutorials/d1-and-drizzle/
@@ -143,13 +150,13 @@ Zero egress fees. Fully S3-compatible API. Store files, images, videos, backups.
 
 ### Pricing
 
-| | Free | Paid |
-|---|---|---|
-| Storage | 10GB/month | $0.015/GB-mo |
-| Class A (PUT, POST, LIST) | 1M/month | $4.50/M |
-| Class B (GET, HEAD) | 10M/month | $0.36/M |
-| Egress | **Free** | **Free** |
-| Delete | Free | Free |
+|                           | Free       | Paid         |
+| ------------------------- | ---------- | ------------ |
+| Storage                   | 10GB/month | $0.015/GB-mo |
+| Class A (PUT, POST, LIST) | 1M/month   | $4.50/M      |
+| Class B (GET, HEAD)       | 10M/month  | $0.36/M      |
+| Egress                    | **Free**   | **Free**     |
+| Delete                    | Free       | Free         |
 
 The killer feature: **zero egress fees**. AWS S3 charges $0.09/GB for egress.
 
@@ -177,30 +184,33 @@ bucket_name = "my-files"
 
 ```typescript
 // Upload
-await c.env.BUCKET.put('images/photo.jpg', imageBuffer, {
-  httpMetadata: { contentType: 'image/jpeg' },
-  customMetadata: { uploadedBy: 'user-123' },
-})
+await c.env.BUCKET.put("images/photo.jpg", imageBuffer, {
+  httpMetadata: { contentType: "image/jpeg" },
+  customMetadata: { uploadedBy: "user-123" },
+});
 
 // Download
-const object = await c.env.BUCKET.get('images/photo.jpg')
+const object = await c.env.BUCKET.get("images/photo.jpg");
 if (object) {
   return new Response(object.body, {
-    headers: { 'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream' },
-  })
+    headers: {
+      "Content-Type":
+        object.httpMetadata?.contentType || "application/octet-stream",
+    },
+  });
 }
 
 // List files
-const listing = await c.env.BUCKET.list({ prefix: 'images/', limit: 100 })
+const listing = await c.env.BUCKET.list({ prefix: "images/", limit: 100 });
 for (const obj of listing.objects) {
-  console.log(obj.key, obj.size)
+  console.log(obj.key, obj.size);
 }
 
 // Delete
-await c.env.BUCKET.delete('images/photo.jpg')
+await c.env.BUCKET.delete("images/photo.jpg");
 
 // Check if exists
-const head = await c.env.BUCKET.head('images/photo.jpg')
+const head = await c.env.BUCKET.head("images/photo.jpg");
 ```
 
 ### Usage in Python
@@ -215,6 +225,7 @@ await self.env.BUCKET.delete("files/doc.pdf")
 ### Presigned URLs (Direct Client Uploads)
 
 For large file uploads, let the client upload directly to R2:
+
 1. Create R2 API credentials in dashboard
 2. Generate presigned URL in your Worker
 3. Client uploads directly to the presigned URL
@@ -231,13 +242,13 @@ Globally distributed, eventually consistent. Optimized for high-read, low-write.
 
 ### Pricing
 
-| | Free | Paid |
-|---|---|---|
-| Reads | 100K/day | 10M/month incl, $0.50/M |
-| Writes | 1K/day | 1M/month incl, $5.00/M |
-| Deletes | 1K/day | 1M/month incl, $5.00/M |
-| Storage | 1GB | 1GB incl, $0.50/GB-mo |
-| Max value size | 25MB | 25MB |
+|                | Free     | Paid                    |
+| -------------- | -------- | ----------------------- |
+| Reads          | 100K/day | 10M/month incl, $0.50/M |
+| Writes         | 1K/day   | 1M/month incl, $5.00/M  |
+| Deletes        | 1K/day   | 1M/month incl, $5.00/M  |
+| Storage        | 1GB      | 1GB incl, $0.50/GB-mo   |
+| Max value size | 25MB     | 25MB                    |
 
 **Pricing docs:** https://developers.cloudflare.com/kv/platform/pricing/
 
@@ -272,17 +283,19 @@ id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 ```typescript
 // Write (with optional TTL)
-await c.env.CACHE.put('user:123', JSON.stringify(userData), { expirationTtl: 3600 })
+await c.env.CACHE.put("user:123", JSON.stringify(userData), {
+  expirationTtl: 3600,
+});
 
 // Read
-const raw = await c.env.CACHE.get('user:123')
-const data = await c.env.CACHE.get('user:123', 'json')     // Auto-parse JSON
+const raw = await c.env.CACHE.get("user:123");
+const data = await c.env.CACHE.get("user:123", "json"); // Auto-parse JSON
 
 // Delete
-await c.env.CACHE.delete('user:123')
+await c.env.CACHE.delete("user:123");
 
 // List keys
-const keys = await c.env.CACHE.list({ prefix: 'user:' })
+const keys = await c.env.CACHE.list({ prefix: "user:" });
 ```
 
 ### Best For
@@ -303,10 +316,10 @@ Guaranteed message delivery. Batching, retries, dead letter queues.
 
 ### Pricing
 
-| | Free | Paid |
-|---|---|---|
-| Operations | 10K/day | 1M/month incl, $0.40/M |
-| Retention | 24 hours | Up to 14 days |
+|            | Free     | Paid                   |
+| ---------- | -------- | ---------------------- |
+| Operations | 10K/day  | 1M/month incl, $0.40/M |
+| Retention  | 24 hours | Up to 14 days          |
 
 1 operation = 64KB of data. Larger messages count as multiple operations.
 
@@ -338,18 +351,28 @@ max_batch_timeout = 30
 
 ```typescript
 // Producer: send a message from API handler
-await c.env.MY_QUEUE.send({ type: 'send-email', to: 'user@example.com', subject: 'Welcome!' })
+await c.env.MY_QUEUE.send({
+  type: "send-email",
+  to: "user@example.com",
+  subject: "Welcome!",
+});
 
 // Consumer: process messages (add queue export alongside fetch export)
 export default {
-  async fetch(request, env) { /* API handlers */ },
+  async fetch(request, env) {
+    /* API handlers */
+  },
   async queue(batch, env) {
     for (const msg of batch.messages) {
-      try { await processMessage(msg.body, env); msg.ack() }
-      catch (e) { msg.retry() }
+      try {
+        await processMessage(msg.body, env);
+        msg.ack();
+      } catch (e) {
+        msg.retry();
+      }
     }
   },
-}
+};
 ```
 
 ### Use Cases
@@ -389,14 +412,16 @@ id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ### Usage
 
 ```typescript
-import { Client } from 'pg'
+import { Client } from "pg";
 
-app.get('/users', async (c) => {
-  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString })
-  await client.connect()
-  const { rows } = await client.query('SELECT * FROM users')
-  return c.json({ data: rows })
-})
+app.get("/users", async (c) => {
+  const client = new Client({
+    connectionString: c.env.HYPERDRIVE.connectionString,
+  });
+  await client.connect();
+  const { rows } = await client.query("SELECT * FROM users");
+  return c.json({ data: rows });
+});
 ```
 
 **Supported:** PostgreSQL, MySQL, Neon, PlanetScale, CockroachDB, Supabase, AWS RDS, Google Cloud SQL
@@ -407,13 +432,13 @@ app.get('/users', async (c) => {
 
 ## Official Documentation Links
 
-| Service | Docs | Pricing | Limits |
-|---------|------|---------|--------|
-| D1 | https://developers.cloudflare.com/d1/ | https://developers.cloudflare.com/d1/platform/pricing/ | https://developers.cloudflare.com/d1/platform/limits/ |
-| R2 | https://developers.cloudflare.com/r2/ | https://developers.cloudflare.com/r2/pricing/ | https://developers.cloudflare.com/r2/platform/limits/ |
-| KV | https://developers.cloudflare.com/kv/ | https://developers.cloudflare.com/kv/platform/pricing/ | https://developers.cloudflare.com/kv/platform/limits/ |
-| Queues | https://developers.cloudflare.com/queues/ | https://developers.cloudflare.com/queues/platform/pricing/ | https://developers.cloudflare.com/queues/platform/limits/ |
-| Hyperdrive | https://developers.cloudflare.com/hyperdrive/ | https://developers.cloudflare.com/hyperdrive/platform/pricing/ | - |
-| D1 + Drizzle guide | https://orm.drizzle.team/docs/guides/d1-http-with-drizzle-kit | - | - |
-| D1 + Python | https://developers.cloudflare.com/d1/examples/query-d1-from-python-workers/ | - | - |
-| R2 presigned URLs | https://developers.cloudflare.com/r2/api/s3/presigned-urls/ | - | - |
+| Service            | Docs                                                                        | Pricing                                                        | Limits                                                    |
+| ------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------- |
+| D1                 | https://developers.cloudflare.com/d1/                                       | https://developers.cloudflare.com/d1/platform/pricing/         | https://developers.cloudflare.com/d1/platform/limits/     |
+| R2                 | https://developers.cloudflare.com/r2/                                       | https://developers.cloudflare.com/r2/pricing/                  | https://developers.cloudflare.com/r2/platform/limits/     |
+| KV                 | https://developers.cloudflare.com/kv/                                       | https://developers.cloudflare.com/kv/platform/pricing/         | https://developers.cloudflare.com/kv/platform/limits/     |
+| Queues             | https://developers.cloudflare.com/queues/                                   | https://developers.cloudflare.com/queues/platform/pricing/     | https://developers.cloudflare.com/queues/platform/limits/ |
+| Hyperdrive         | https://developers.cloudflare.com/hyperdrive/                               | https://developers.cloudflare.com/hyperdrive/platform/pricing/ | -                                                         |
+| D1 + Drizzle guide | https://orm.drizzle.team/docs/guides/d1-http-with-drizzle-kit               | -                                                              | -                                                         |
+| D1 + Python        | https://developers.cloudflare.com/d1/examples/query-d1-from-python-workers/ | -                                                              | -                                                         |
+| R2 presigned URLs  | https://developers.cloudflare.com/r2/api/s3/presigned-urls/                 | -                                                              | -                                                         |

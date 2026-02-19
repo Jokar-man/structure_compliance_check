@@ -35,14 +35,14 @@ print(result.output)
 
 ## Core Concepts
 
-| Concept | What it is | One-liner |
-|---|---|---|
-| Agent | Wrapper around an LLM | `Agent('google-gla:gemini-2.0-flash')` |
-| Tool | Function the agent can call | `@agent.tool` decorator |
-| Structured output | Force LLM to return a Pydantic model | `output_type=MyModel` |
-| Dependencies | Inject shared state into tools | `deps_type=MyDeps`, `RunContext[MyDeps]` |
-| Chain | Output of agent A feeds agent B | Call two agents in sequence |
-| Delegation | Agent A calls agent B as a tool | `await worker.run(...)` inside a tool |
+| Concept           | What it is                           | One-liner                                |
+| ----------------- | ------------------------------------ | ---------------------------------------- |
+| Agent             | Wrapper around an LLM                | `Agent('google-gla:gemini-2.0-flash')`   |
+| Tool              | Function the agent can call          | `@agent.tool` decorator                  |
+| Structured output | Force LLM to return a Pydantic model | `output_type=MyModel`                    |
+| Dependencies      | Inject shared state into tools       | `deps_type=MyDeps`, `RunContext[MyDeps]` |
+| Chain             | Output of agent A feeds agent B      | Call two agents in sequence              |
+| Delegation        | Agent A calls agent B as a tool      | `await worker.run(...)` inside a tool    |
 
 ## When to Use Which Pattern
 
@@ -54,13 +54,13 @@ Programmatic hand-off    <- App code sequences agents (pipeline)
 
 ## Reference Docs
 
-| Read when... | File |
-|---|---|
-| Setting up agents, registering tools, structured output, deps | [agents-and-tools.md](./references/agents-and-tools.md) |
-| Multi-agent orchestration, delegation, parallel execution | [chains-and-orchestration.md](./references/chains-and-orchestration.md) |
-| Multi-turn chat, message history, Gradio integration | [chat-and-conversation.md](./references/chat-and-conversation.md) |
-| System prompts, dynamic prompts, model config, switching | [prompts-and-models.md](./references/prompts-and-models.md) |
-| Logging, error handling, retries, streaming, testing | [production-patterns.md](./references/production-patterns.md) |
+| Read when...                                                  | File                                                                    |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Setting up agents, registering tools, structured output, deps | [agents-and-tools.md](./references/agents-and-tools.md)                 |
+| Multi-agent orchestration, delegation, parallel execution     | [chains-and-orchestration.md](./references/chains-and-orchestration.md) |
+| Multi-turn chat, message history, Gradio integration          | [chat-and-conversation.md](./references/chat-and-conversation.md)       |
+| System prompts, dynamic prompts, model config, switching      | [prompts-and-models.md](./references/prompts-and-models.md)             |
+| Logging, error handling, retries, streaming, testing          | [production-patterns.md](./references/production-patterns.md)           |
 
 ## Self-Correcting Skill
 

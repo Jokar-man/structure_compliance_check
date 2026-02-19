@@ -75,6 +75,7 @@ dev = ["workers-py"]
 ## Handler Pattern (compatibility_date matters!)
 
 > **CRITICAL:** The `compatibility_date` determines which handler pattern the runtime expects.
+>
 > - `>= 2025-08-14`: Class-based `WorkerEntrypoint.fetch()` (current, shown below)
 > - `< 2025-08-14`: Old `on_fetch` top-level function (deprecated)
 >
@@ -180,12 +181,14 @@ listing = await self.env.BUCKET.list(prefix="files/")
 ## What Works / What Doesn't
 
 ### Supported
+
 - Pure Python packages from PyPI
 - Pyodide-bundled packages (NumPy, Pandas, Pillow, scipy, scikit-learn, matplotlib)
 - Async HTTP clients (httpx, aiohttp)
 - All CF bindings (D1, KV, R2, Durable Objects, AI, Queues, Vectorize)
 
 ### NOT Supported
+
 - Flask, Django (synchronous frameworks)
 - `requests` library (synchronous HTTP)
 - Packages with native C extensions NOT in Pyodide
@@ -193,6 +196,7 @@ listing = await self.env.BUCKET.list(prefix="files/")
 - File system operations (WASM sandbox)
 
 ### Limits
+
 - 128MB memory per isolate (includes Python runtime + your code + data)
 - Free: 10ms CPU/request | Paid: 5 min CPU/request
 - Script size: 3MB compressed (free), 10MB (paid)
@@ -202,12 +206,12 @@ listing = await self.env.BUCKET.list(prefix="files/")
 
 ## Python vs JS/TS Decision
 
-| Factor | JS/TS (Hono) | Python (FastAPI) |
-|--------|-------------|-----------------|
-| Maturity on CF | GA, production-ready | Open beta |
-| Cold start | ~5ms (effectively zero with pre-warming) | ~1 second (WASM) |
-| Package ecosystem | Full npm | PyPI + Pyodide subset |
-| ORM | Drizzle (excellent D1 support) | Raw SQL via bindings |
-| Type safety | End-to-end with Zod + TS | Pydantic models |
-| Framework | Hono (CF-native) | FastAPI (adapted via ASGI) |
-| Best for | Production apps, fullstack | Data/ML APIs, Python teams |
+| Factor            | JS/TS (Hono)                             | Python (FastAPI)           |
+| ----------------- | ---------------------------------------- | -------------------------- |
+| Maturity on CF    | GA, production-ready                     | Open beta                  |
+| Cold start        | ~5ms (effectively zero with pre-warming) | ~1 second (WASM)           |
+| Package ecosystem | Full npm                                 | PyPI + Pyodide subset      |
+| ORM               | Drizzle (excellent D1 support)           | Raw SQL via bindings       |
+| Type safety       | End-to-end with Zod + TS                 | Pydantic models            |
+| Framework         | Hono (CF-native)                         | FastAPI (adapted via ASGI) |
+| Best for          | Production apps, fullstack               | Data/ML APIs, Python teams |

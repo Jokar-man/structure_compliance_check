@@ -10,6 +10,7 @@ User uploads IFC → R2 bucket → Space downloads at /check time → processes 
 ## Setup
 
 Secrets (set before first push — see [Secrets](./secrets-best-practices.md)):
+
 ```python
 api.add_space_secret("org/app", key="S3_ACCESS_KEY", value="...")
 api.add_space_secret("org/app", key="S3_SECRET_KEY", value="...")

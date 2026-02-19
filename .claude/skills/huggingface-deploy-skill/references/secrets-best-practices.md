@@ -78,19 +78,19 @@ api.delete_space_secret("serJD/my-app", key="GEMINI_API_KEY")
 
 ## Common Mistakes
 
-| Mistake | Fix |
-|---------|-----|
-| Hardcoded key in `main.py` | Use `os.environ.get("KEY")` |
-| Key in `requirements.txt` or Dockerfile | Never put secrets in files |
-| Using `os.environ["KEY"]` without fallback | Use `.get()` + startup check |
-| Forgetting to restart after update | `api.restart_space("org/name")` |
-| Pushing before setting secrets | Set secrets first, then `git push` |
+| Mistake                                    | Fix                                |
+| ------------------------------------------ | ---------------------------------- |
+| Hardcoded key in `main.py`                 | Use `os.environ.get("KEY")`        |
+| Key in `requirements.txt` or Dockerfile    | Never put secrets in files         |
+| Using `os.environ["KEY"]` without fallback | Use `.get()` + startup check       |
+| Forgetting to restart after update         | `api.restart_space("org/name")`    |
+| Pushing before setting secrets             | Set secrets first, then `git push` |
 
 ## Secrets You'll Need
 
-| Secret | Purpose | Who sets it |
-|--------|---------|-------------|
-| `GEMINI_API_KEY` | LLM-powered checks (PydanticAI) | Instructor (shared key) |
-| `S3_ACCESS_KEY` | R2 file download (see [R2 File Storage](./r2-file-storage.md)) | Captain |
-| `S3_SECRET_KEY` | R2 file download | Captain |
-| `HF_TOKEN` | Only if cloning private repos in Dockerfile | Captain |
+| Secret           | Purpose                                                        | Who sets it             |
+| ---------------- | -------------------------------------------------------------- | ----------------------- |
+| `GEMINI_API_KEY` | LLM-powered checks (PydanticAI)                                | Instructor (shared key) |
+| `S3_ACCESS_KEY`  | R2 file download (see [R2 File Storage](./r2-file-storage.md)) | Captain                 |
+| `S3_SECRET_KEY`  | R2 file download                                               | Captain                 |
+| `HF_TOKEN`       | Only if cloning private repos in Dockerfile                    | Captain                 |

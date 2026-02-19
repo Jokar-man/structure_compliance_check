@@ -95,13 +95,13 @@ result = agent.run_sync('Hello')
 
 ### What Gets Logged Automatically
 
-| What | Detail |
-|---|---|
-| Agent run spans | Complete trace per `agent.run()` |
-| Model request spans | Each LLM API call |
-| Tool execution spans | Every tool call and result |
-| Token metrics | `gen_ai.usage.input_tokens`, `output_tokens` |
-| Messages | System instructions, input/output messages |
+| What                 | Detail                                       |
+| -------------------- | -------------------------------------------- |
+| Agent run spans      | Complete trace per `agent.run()`             |
+| Model request spans  | Each LLM API call                            |
+| Tool execution spans | Every tool call and result                   |
+| Token metrics        | `gen_ai.usage.input_tokens`, `output_tokens` |
+| Messages             | System instructions, input/output messages   |
 
 ### Non-Logfire OpenTelemetry Backend
 

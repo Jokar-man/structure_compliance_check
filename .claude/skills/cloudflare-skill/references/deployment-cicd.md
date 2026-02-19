@@ -3,17 +3,20 @@
 ## CLI Deployment
 
 ### Single Worker
+
 ```bash
 wrangler deploy                     # Production
 wrangler deploy --env preview       # Preview environment
 ```
 
 ### Python Worker
+
 ```bash
 uv run pywrangler deploy
 ```
 
 ### Fullstack (API Worker + Frontend)
+
 ```bash
 # 1. Migrate database
 wrangler d1 migrations apply my-db --remote
@@ -37,22 +40,26 @@ Cloudflare Pages does NOT support proxy mode unlike Netlify.** Use Pages Functio
 
 ```typescript
 // client/functions/api/[[path]].ts — proxies /api/* to Workers API
-const API_ORIGIN = 'https://my-api.username.workers.dev'
+const API_ORIGIN = "https://my-api.username.workers.dev";
 
 export const onRequest: PagesFunction = async ({ request }) => {
-  const url = new URL(request.url)
-  const target = new URL(url.pathname + url.search, API_ORIGIN)
-  const headers = new Headers(request.headers)
-  headers.set('Host', new URL(API_ORIGIN).host)
+  const url = new URL(request.url);
+  const target = new URL(url.pathname + url.search, API_ORIGIN);
+  const headers = new Headers(request.headers);
+  headers.set("Host", new URL(API_ORIGIN).host);
   return fetch(target.toString(), {
     method: request.method,
     headers,
-    body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
-  })
-}
+    body:
+      request.method !== "GET" && request.method !== "HEAD"
+        ? request.body
+        : undefined,
+  });
+};
 ```
 
 Create matching files for each route prefix that needs proxying:
+
 - `functions/api/[[path]].ts` — proxies `/api/*`
 - `functions/auth/[[path]].ts` — proxies `/auth/*`
 
@@ -60,6 +67,7 @@ The `functions/` directory must be at the same level as `dist/` (in the project 
 not inside dist). `wrangler pages deploy` auto-detects and bundles them.
 
 ### Provision All Resources from CLI
+
 ```bash
 wrangler d1 create my-db                              # Database
 wrangler r2 bucket create my-files                    # Storage
@@ -76,11 +84,11 @@ wrangler secret delete OLD_KEY                        # Delete secret
 
 ### Three Levels of Configuration
 
-| Type | Where | Visible? | Use For |
-|------|-------|----------|---------|
-| `[vars]` in wrangler.toml | In git | Yes, in dashboard + code | Non-sensitive (ENVIRONMENT, APP_NAME) |
-| `wrangler secret put` | CF encrypted store | No (write-only after set) | API keys, DB passwords, JWT secrets |
-| `.dev.vars` | Local file, gitignored | Local only | Development secrets |
+| Type                      | Where                  | Visible?                  | Use For                               |
+| ------------------------- | ---------------------- | ------------------------- | ------------------------------------- |
+| `[vars]` in wrangler.toml | In git                 | Yes, in dashboard + code  | Non-sensitive (ENVIRONMENT, APP_NAME) |
+| `wrangler secret put`     | CF encrypted store     | No (write-only after set) | API keys, DB passwords, JWT secrets   |
+| `.dev.vars`               | Local file, gitignored | Local only                | Development secrets                   |
 
 **Docs:** https://developers.cloudflare.com/workers/configuration/secrets/
 **Env vars docs:** https://developers.cloudflare.com/workers/configuration/environment-variables/
@@ -126,10 +134,10 @@ Secrets and vars are accessed identically - no code changes needed:
 
 ```typescript
 // JS/TS
-app.get('/', (c) => {
-  const secret = c.env.API_KEY           // from wrangler secret put
-  const config = c.env.ENVIRONMENT       // from [vars] in wrangler.toml
-})
+app.get("/", (c) => {
+  const secret = c.env.API_KEY; // from wrangler secret put
+  const config = c.env.ENVIRONMENT; // from [vars] in wrangler.toml
+});
 ```
 
 ```python
@@ -369,13 +377,13 @@ Skip deploy with commit message prefix: `[CI Skip]` or `[CF-Pages-Skip]`
 
 ## Official Documentation Links
 
-| Topic | URL |
-|-------|-----|
-| Secrets | https://developers.cloudflare.com/workers/configuration/secrets/ |
-| Environment variables | https://developers.cloudflare.com/workers/configuration/environment-variables/ |
-| Environments | https://developers.cloudflare.com/workers/wrangler/environments/ |
-| GitHub Actions | https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/ |
-| wrangler-action | https://github.com/cloudflare/wrangler-action |
-| Workers Builds (native CI) | https://developers.cloudflare.com/workers/ci-cd/builds/ |
-| Pages Git integration | https://developers.cloudflare.com/pages/configuration/git-integration/ |
-| API tokens | https://developers.cloudflare.com/fundamentals/api/get-started/create-token/ |
+| Topic                      | URL                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| Secrets                    | https://developers.cloudflare.com/workers/configuration/secrets/               |
+| Environment variables      | https://developers.cloudflare.com/workers/configuration/environment-variables/ |
+| Environments               | https://developers.cloudflare.com/workers/wrangler/environments/               |
+| GitHub Actions             | https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/  |
+| wrangler-action            | https://github.com/cloudflare/wrangler-action                                  |
+| Workers Builds (native CI) | https://developers.cloudflare.com/workers/ci-cd/builds/                        |
+| Pages Git integration      | https://developers.cloudflare.com/pages/configuration/git-integration/         |
+| API tokens                 | https://developers.cloudflare.com/fundamentals/api/get-started/create-token/   |

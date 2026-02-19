@@ -19,6 +19,7 @@ npm install -D wrangler @cloudflare/workers-types drizzle-kit typescript
 ## Step 2: Create tsconfig.json
 
 Create `api/tsconfig.json`:
+
 ```json
 {
   "compilerOptions": {
@@ -58,113 +59,118 @@ database_id = "LOCAL_PLACEHOLDER"
 
 ```typescript
 // api/src/domains/items/items.schema.ts
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
-import { z } from 'zod'
+import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 
-export const items = sqliteTable('items', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
-})
+export const items = sqliteTable("items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  completed: integer("completed", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+});
 
 export const insertItemSchema = createInsertSchema(items, {
-  title: z.string().min(1, 'Title is required').max(200),
-})
-export const selectItemSchema = createSelectSchema(items)
-export type Item = z.infer<typeof selectItemSchema>
-export type NewItem = z.infer<typeof insertItemSchema>
+  title: z.string().min(1, "Title is required").max(200),
+});
+export const selectItemSchema = createSelectSchema(items);
+export type Item = z.infer<typeof selectItemSchema>;
+export type NewItem = z.infer<typeof insertItemSchema>;
 ```
 
 ## Step 5: Create DB Factory + Drizzle Config
 
 ```typescript
 // api/src/db/index.ts
-import { drizzle } from 'drizzle-orm/d1'
-import * as schema from './schema'
-export const createDb = (d1: D1Database) => drizzle(d1, { schema })
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "./schema";
+export const createDb = (d1: D1Database) => drizzle(d1, { schema });
 ```
 
 ```typescript
 // api/src/db/schema.ts — barrel export all domain schemas
-export * from '../domains/items/items.schema'
+export * from "../domains/items/items.schema";
 ```
 
 ```typescript
 // api/drizzle.config.ts
-import { defineConfig } from 'drizzle-kit'
+import { defineConfig } from "drizzle-kit";
 export default defineConfig({
-  schema: './src/domains/**/*.schema.ts',
-  out: './migrations',
-  dialect: 'sqlite',
-  driver: 'd1-http',
-})
+  schema: "./src/domains/**/*.schema.ts",
+  out: "./migrations",
+  dialect: "sqlite",
+  driver: "d1-http",
+});
 ```
 
 ## Step 6: Create CRUD Routes
 
 ```typescript
 // api/src/domains/items/items.routes.ts
-import { Hono } from 'hono'
-import { zValidator } from '@hono/zod-validator'
-import { eq } from 'drizzle-orm'
-import { createDb } from '../../db'
-import { items, insertItemSchema } from './items.schema'
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { eq } from "drizzle-orm";
+import { createDb } from "../../db";
+import { items, insertItemSchema } from "./items.schema";
 
-type Bindings = { DB: D1Database }
-const app = new Hono<{ Bindings: Bindings }>()
+type Bindings = { DB: D1Database };
+const app = new Hono<{ Bindings: Bindings }>();
 
-app.get('/', async (c) => {
-  const db = createDb(c.env.DB)
-  const result = await db.select().from(items).all()
-  return c.json({ data: result })
-})
+app.get("/", async (c) => {
+  const db = createDb(c.env.DB);
+  const result = await db.select().from(items).all();
+  return c.json({ data: result });
+});
 
-app.post('/', zValidator('json', insertItemSchema), async (c) => {
-  const data = c.req.valid('json')
-  const db = createDb(c.env.DB)
-  const result = await db.insert(items).values(data).returning()
-  return c.json({ data: result[0] }, 201)
-})
+app.post("/", zValidator("json", insertItemSchema), async (c) => {
+  const data = c.req.valid("json");
+  const db = createDb(c.env.DB);
+  const result = await db.insert(items).values(data).returning();
+  return c.json({ data: result[0] }, 201);
+});
 
-app.put('/:id', async (c) => {
-  const id = Number(c.req.param('id'))
-  const db = createDb(c.env.DB)
-  const existing = await db.select().from(items).where(eq(items.id, id)).get()
-  if (!existing) return c.json({ error: 'Not found' }, 404)
-  const result = await db.update(items).set({ completed: !existing.completed })
-    .where(eq(items.id, id)).returning()
-  return c.json({ data: result[0] })
-})
+app.put("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const db = createDb(c.env.DB);
+  const existing = await db.select().from(items).where(eq(items.id, id)).get();
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const result = await db
+    .update(items)
+    .set({ completed: !existing.completed })
+    .where(eq(items.id, id))
+    .returning();
+  return c.json({ data: result[0] });
+});
 
-app.delete('/:id', async (c) => {
-  const id = Number(c.req.param('id'))
-  const db = createDb(c.env.DB)
-  await db.delete(items).where(eq(items.id, id))
-  return c.json({ data: { deleted: true } })
-})
+app.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const db = createDb(c.env.DB);
+  await db.delete(items).where(eq(items.id, id));
+  return c.json({ data: { deleted: true } });
+});
 
-export { app as itemsRouter }
+export { app as itemsRouter };
 ```
 
 ## Step 7: Create the Entry Point
 
 ```typescript
 // api/src/index.ts
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { itemsRouter } from './domains/items/items.routes'
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { itemsRouter } from "./domains/items/items.routes";
 
-type Bindings = { DB: D1Database }
-const app = new Hono<{ Bindings: Bindings }>()
+type Bindings = { DB: D1Database };
+const app = new Hono<{ Bindings: Bindings }>();
 
 // CORS — required so the frontend (port 3001) can talk to the API (port 8787)
-app.use('/*', cors())
-app.get('/', (c) => c.json({ status: 'running' }))
-app.route('/items', itemsRouter)
+app.use("/*", cors());
+app.get("/", (c) => c.json({ status: "running" }));
+app.route("/items", itemsRouter);
 
-export default app
+export default app;
 ```
 
 ## Step 8: Generate Migration + Create D1 Database
@@ -218,39 +224,42 @@ mkdir -p client/src/lib
 
 ```typescript
 // client/src/lib/api.ts
-const baseURL = import.meta.env.VITE_API_URL || '/api'
+const baseURL = import.meta.env.VITE_API_URL || "/api";
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
   const res = await fetch(`${baseURL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
     ...options,
-  })
+  });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error || res.statusText)
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || res.statusText);
   }
-  return res.json()
+  return res.json();
 }
 ```
 
 ```typescript
 // client/vite.config.ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 3001,
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8787',
+      "/api": {
+        target: "http://127.0.0.1:8787",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },
-})
+});
 ```
 
 ## Step 13: Build the To-Do UI
@@ -329,6 +338,7 @@ export default function App() {
 ## Step 14: Run Full Stack Locally
 
 Two terminals:
+
 ```bash
 # Terminal 1 — API:    cd todo-app/api && wrangler dev
 # Terminal 2 — Client: cd todo-app/client && npm run dev

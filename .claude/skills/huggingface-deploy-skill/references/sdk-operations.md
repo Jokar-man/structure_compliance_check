@@ -20,6 +20,7 @@ api.create_repo(
 ```
 
 Or via CLI:
+
 ```bash
 hf repo create my-app --repo-type space --space-sdk docker
 ```
@@ -85,6 +86,7 @@ api.restart_space("your-org/my-app")
 ```
 
 Useful before demos to avoid cold start delays:
+
 ```python
 # Wake all team spaces before a presentation
 for team in ["team-a", "team-b", "team-c", "team-d", "team-e"]:

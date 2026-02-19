@@ -1,7 +1,7 @@
 # Docker Space Setup
 
 A Docker-based HF Space needs these files at the repo root.
-You can have additional files (src/*.py, data/, etc.) — these are the required ones.
+You can have additional files (src/\*.py, data/, etc.) — these are the required ones.
 
 ## 1. README.md (frontmatter — required)
 
@@ -47,6 +47,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", 
 ```
 
 **Critical rules:**
+
 - Container runs as `uid 1000` — create the user and `chown` files to it
 - Bind `0.0.0.0:7860` — HF routes external traffic to this port
 - `--no-cache-dir` keeps image small

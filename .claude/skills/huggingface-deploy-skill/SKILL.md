@@ -28,6 +28,7 @@ hf auth whoami
 ```
 
 If this fails:
+
 - Create account: https://huggingface.co/join
 - Create token: https://huggingface.co/settings/tokens → New token → **Write** scope (must include Repos: Write and Spaces permissions)
 - Login: `hf auth login` (paste token when prompted)
@@ -110,6 +111,7 @@ print(f'Status: {rt.stage}')
 ```
 
 Your Space URL:
+
 ```
 https://$HF_USER-my-app.hf.space
 https://$HF_USER-my-app.hf.space/docs   ← FastAPI auto-docs
@@ -122,18 +124,19 @@ Check the Space Settings page for the exact URL if unsure.
 ## Build Logs
 
 There is no CLI command for build logs. Two options:
+
 - **Dashboard**: visit your Space page → "Logs" tab (fastest for debugging)
 - **SDK status polling**: `api.get_space_runtime()` returns stage (BUILDING/RUNNING/ERROR) but not log content
 
 ## Free Tier Limits
 
-| Resource | Limit |
-|----------|-------|
-| vCPU | 2 |
-| RAM | 16 GB |
-| Disk | 50 GB (ephemeral — resets on restart) |
-| Sleep after inactivity | 48 hours |
-| Cold start after sleep | 10–60 seconds |
+| Resource               | Limit                                 |
+| ---------------------- | ------------------------------------- |
+| vCPU                   | 2                                     |
+| RAM                    | 16 GB                                 |
+| Disk                   | 50 GB (ephemeral — resets on restart) |
+| Sleep after inactivity | 48 hours                              |
+| Cold start after sleep | 10–60 seconds                         |
 
 **Network constraint:** outbound connections on non-standard ports may be blocked.
 HTTP/HTTPS (80/443) always works. Direct database connections (PostgreSQL 5432,
@@ -142,6 +145,7 @@ MySQL 3306, Redis 6379) are unreliable — use HTTP APIs for external services.
 ## When Something Goes Wrong
 
 File an issue on the skills repo:
+
 ```bash
 gh issue create \
   --repo SerjoschDuering/iaac-bimwise-skills \

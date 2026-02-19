@@ -48,6 +48,7 @@ wrangler whoami         # Verify you're logged in
 This creates a token stored at `~/.wrangler/config/default.toml` (your home directory).
 
 For CI/CD, create an API token instead:
+
 1. Go to [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
 2. Click "Create Token"
 3. Use template **"Edit Cloudflare Workers"** (covers Workers, Pages, D1, R2, KV)
@@ -56,6 +57,7 @@ For CI/CD, create an API token instead:
 ## 4. Scaffold a Project
 
 ### Option A: Use C3 (create-cloudflare)
+
 ```bash
 npm create cloudflare@latest my-app
 # Interactive prompts:
@@ -65,6 +67,7 @@ npm create cloudflare@latest my-app
 ```
 
 ### Option B: Manual setup
+
 ```bash
 mkdir my-app && cd my-app
 npm init -y
@@ -73,6 +76,7 @@ npm install -D wrangler @cloudflare/workers-types
 ```
 
 Create `wrangler.toml`:
+
 ```toml
 name = "my-app"
 main = "src/index.ts"
@@ -81,14 +85,16 @@ compatibility_flags = ["nodejs_compat"]
 ```
 
 Create `src/index.ts`:
+
 ```typescript
-import { Hono } from 'hono'
-const app = new Hono()
-app.get('/', (c) => c.json({ hello: 'world' }))
-export default app
+import { Hono } from "hono";
+const app = new Hono();
+app.get("/", (c) => c.json({ hello: "world" }));
+export default app;
 ```
 
 ### Option C: Python Worker
+
 ```bash
 # Install pywrangler
 pip install workers-py
@@ -145,6 +151,7 @@ wrangler kv namespace create MY_CACHE
 ```
 
 Then add bindings to `wrangler.toml`:
+
 ```toml
 [[d1_databases]]
 binding = "DB"
@@ -174,6 +181,7 @@ wrangler deploy  # deploys to *.workers.dev
 ## Project Structure (Recommended)
 
 ### Simple API
+
 ```
 my-app/
 ├── src/
@@ -190,6 +198,7 @@ my-app/
 ```
 
 ### Fullstack (API + SPA)
+
 ```
 my-app/
 ├── api/
@@ -206,6 +215,7 @@ my-app/
 ```
 
 ### Python API
+
 ```
 my-python-app/
 ├── src/
@@ -217,16 +227,16 @@ my-python-app/
 
 ## Free Tier Limits (What You Get for $0)
 
-| Service | Free Allowance |
-|---------|---------------|
-| Workers | 100K requests/day, 10ms CPU/request |
-| Static Assets | Unlimited bandwidth |
-| D1 | 5M reads/day, 100K writes/day, 5GB storage |
-| R2 | 10GB storage, 1M writes, 10M reads/month |
-| KV | 100K reads/day, 1K writes/day, 1GB |
-| Queues | 10K operations/day |
-| Workers AI | 10K neurons/day |
-| Turnstile | 1M requests/month |
-| Hyperdrive | Included (100K queries/day free) |
+| Service       | Free Allowance                             |
+| ------------- | ------------------------------------------ |
+| Workers       | 100K requests/day, 10ms CPU/request        |
+| Static Assets | Unlimited bandwidth                        |
+| D1            | 5M reads/day, 100K writes/day, 5GB storage |
+| R2            | 10GB storage, 1M writes, 10M reads/month   |
+| KV            | 100K reads/day, 1K writes/day, 1GB         |
+| Queues        | 10K operations/day                         |
+| Workers AI    | 10K neurons/day                            |
+| Turnstile     | 1M requests/month                          |
+| Hyperdrive    | Included (100K queries/day free)           |
 
 The **$5/month paid plan** dramatically increases all limits (e.g., 10M Worker requests/month).

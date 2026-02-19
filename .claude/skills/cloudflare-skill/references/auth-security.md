@@ -473,3 +473,4 @@ app.post('/submit', async (c) => {
 | Turnstile server-side | https://developers.cloudflare.com/turnstile/get-started/server-side-validation/ |
 | Better Auth + Hono | https://hono.dev/examples/better-auth-on-cloudflare |
 | better-auth-cloudflare | https://github.com/zpg6/better-auth-cloudflare |
+

@@ -35,11 +35,11 @@ Returning empty string skips that part.
 
 ### instructions vs system_prompt
 
-| | `instructions` | `system_prompt` |
-|---|---|---|
-| In `message_history` | No | Yes |
-| Regenerated on new runs | Yes (always fresh) | No (if history present) |
-| Best for | Single-agent (default choice) | Cross-agent context sharing |
+|                         | `instructions`                | `system_prompt`             |
+| ----------------------- | ----------------------------- | --------------------------- |
+| In `message_history`    | No                            | Yes                         |
+| Regenerated on new runs | Yes (always fresh)            | No (if history present)     |
+| Best for                | Single-agent (default choice) | Cross-agent context sharing |
 
 **Use `instructions` as your default.** Only use `system_prompt` when the instruction
 must survive being passed as `message_history` to another agent.
@@ -47,6 +47,7 @@ must survive being passed as `message_history` to another agent.
 ## Prompt Best Practices for Tool-Using Agents
 
 **1. Be explicit about when to use tools:**
+
 ```python
 agent = Agent(
     'google-gla:gemini-2.0-flash',
@@ -59,6 +60,7 @@ When all checks are complete, summarize results as a structured list.""",
 ```
 
 **2. Describe expected output in the prompt** (especially with structured output):
+
 ```python
 agent = Agent(
     'google-gla:gemini-2.0-flash',
@@ -69,6 +71,7 @@ Return results with status (PASS/FAIL), regulation clause, and measured vs requi
 ```
 
 **3. Separate static facts from dynamic context:**
+
 ```python
 agent = Agent(
     'google-gla:gemini-2.0-flash',
@@ -81,6 +84,7 @@ def add_project(ctx: RunContext[ProjectDeps]) -> str:
 ```
 
 **4. Write clear tool docstrings** — they become the tool schema description:
+
 ```python
 @agent.tool_plain
 def get_wall_thickness(wall_id: str) -> float:
@@ -100,12 +104,12 @@ def get_wall_thickness(wall_id: str) -> float:
 "<provider>:<model-name>"
 ```
 
-| Provider | Format | Auth |
-|---|---|---|
-| Google GLA | `google-gla:gemini-2.0-flash` | `GOOGLE_API_KEY` env var |
-| Google Vertex | `google-vertex:gemini-2.0-flash` | `gcloud` ADC |
-| OpenAI | `openai:gpt-4o` | `OPENAI_API_KEY` env var |
-| Anthropic | `anthropic:claude-sonnet-4-5` | `ANTHROPIC_API_KEY` env var |
+| Provider      | Format                           | Auth                        |
+| ------------- | -------------------------------- | --------------------------- |
+| Google GLA    | `google-gla:gemini-2.0-flash`    | `GOOGLE_API_KEY` env var    |
+| Google Vertex | `google-vertex:gemini-2.0-flash` | `gcloud` ADC                |
+| OpenAI        | `openai:gpt-4o`                  | `OPENAI_API_KEY` env var    |
+| Anthropic     | `anthropic:claude-sonnet-4-5`    | `ANTHROPIC_API_KEY` env var |
 
 ### Gemini Models (used in this course)
 

@@ -178,3 +178,4 @@ gr.ChatInterface(fn=respond, type='messages', title='BIMwise').launch()
 - [Messages and Chat History](https://ai.pydantic.dev/message-history/)
 - [Chat App Example](https://ai.pydantic.dev/examples/chat-app/)
 - [Gradio ChatInterface](https://www.gradio.app/docs/gradio/chatinterface)
+

@@ -13,31 +13,31 @@ This guide teaches you how to see what's going on and fix it.
 and in the Cloudflare dashboard.
 
 ```typescript
-app.post('/items', async (c) => {
-  const data = c.req.valid('json')
+app.post("/items", async (c) => {
+  const data = c.req.valid("json");
 
   // Log what's coming in - helps you see exactly what the client sent
-  console.log('[POST /items] Creating item:', JSON.stringify(data))
+  console.log("[POST /items] Creating item:", JSON.stringify(data));
 
   try {
-    const result = await db.insert(items).values(data).returning()
-    console.log('[POST /items] Created successfully, id:', result[0].id)
-    return c.json({ data: result[0] }, 201)
+    const result = await db.insert(items).values(data).returning();
+    console.log("[POST /items] Created successfully, id:", result[0].id);
+    return c.json({ data: result[0] }, 201);
   } catch (error) {
     // Log the FULL error - don't just swallow it
-    console.error('[POST /items] Failed to create item:', error)
-    return c.json({ error: 'Failed to create item' }, 500)
+    console.error("[POST /items] Failed to create item:", error);
+    return c.json({ error: "Failed to create item" }, 500);
   }
-})
+});
 ```
 
 ### Log Levels
 
 ```typescript
-console.log('Info - normal operation')          // General info
-console.warn('Warning - something unexpected')  // Potential issues
-console.error('Error - something broke')        // Actual errors
-console.debug('Debug - verbose details')        // Extra detail for debugging
+console.log("Info - normal operation"); // General info
+console.warn("Warning - something unexpected"); // Potential issues
+console.error("Error - something broke"); // Actual errors
+console.debug("Debug - verbose details"); // Extra detail for debugging
 ```
 
 ### Structured Logging (Recommended)
@@ -50,21 +50,24 @@ Instead of string-smashing, log objects. They're searchable and parseable.
  * Adds timestamp and request context to every log.
  * Makes it much easier to trace what happened and when.
  */
-function log(level: 'info' | 'warn' | 'error', message: string, data?: any) {
+function log(level: "info" | "warn" | "error", message: string, data?: any) {
   const entry = {
     level,
     message,
     timestamp: new Date().toISOString(),
     ...data,
-  }
-  if (level === 'error') console.error(JSON.stringify(entry))
-  else if (level === 'warn') console.warn(JSON.stringify(entry))
-  else console.log(JSON.stringify(entry))
+  };
+  if (level === "error") console.error(JSON.stringify(entry));
+  else if (level === "warn") console.warn(JSON.stringify(entry));
+  else console.log(JSON.stringify(entry));
 }
 
 // Usage
-log('info', 'Item created', { itemId: 42, userId: 'abc' })
-log('error', 'Database query failed', { query: 'SELECT...', error: err.message })
+log("info", "Item created", { itemId: 42, userId: "abc" });
+log("error", "Database query failed", {
+  query: "SELECT...",
+  error: err.message,
+});
 ```
 
 ### Request Logging Middleware
@@ -72,7 +75,7 @@ log('error', 'Database query failed', { query: 'SELECT...', error: err.message }
 Add this to see every request that hits your API:
 
 ```typescript
-import { Hono } from 'hono'
+import { Hono } from "hono";
 
 /**
  * Logs every incoming request and its response status.
@@ -82,24 +85,24 @@ import { Hono } from 'hono'
  *   → GET /items (from 192.168.1.1)
  *   ← GET /items 200 (45ms)
  */
-app.use('*', async (c, next) => {
-  const start = Date.now()
-  const method = c.req.method
-  const path = c.req.path
+app.use("*", async (c, next) => {
+  const start = Date.now();
+  const method = c.req.method;
+  const path = c.req.path;
 
-  console.log(`→ ${method} ${path}`)
+  console.log(`→ ${method} ${path}`);
 
-  await next()
+  await next();
 
-  const duration = Date.now() - start
-  const status = c.res.status
-  console.log(`← ${method} ${path} ${status} (${duration}ms)`)
+  const duration = Date.now() - start;
+  const status = c.res.status;
+  console.log(`← ${method} ${path} ${status} (${duration}ms)`);
 
   // Warn on slow responses (over 1 second)
   if (duration > 1000) {
-    console.warn(`⚠ Slow response: ${method} ${path} took ${duration}ms`)
+    console.warn(`⚠ Slow response: ${method} ${path} took ${duration}ms`);
   }
-})
+});
 ```
 
 ---
@@ -150,18 +153,21 @@ This is the easiest way to debug - just add logs and watch the terminal.
 **Step 1:** Add try/catch with logging to EVERY route handler:
 
 ```typescript
-app.get('/items', async (c) => {
+app.get("/items", async (c) => {
   try {
-    const db = createDb(c.env.DB)
-    const result = await db.select().from(items).all()
-    return c.json({ data: result })
+    const db = createDb(c.env.DB);
+    const result = await db.select().from(items).all();
+    return c.json({ data: result });
   } catch (error) {
     // This is the most important line - log the actual error
-    console.error('GET /items failed:', error instanceof Error ? error.message : error)
-    console.error('Stack:', error instanceof Error ? error.stack : 'no stack')
-    return c.json({ error: 'Internal server error' }, 500)
+    console.error(
+      "GET /items failed:",
+      error instanceof Error ? error.message : error,
+    );
+    console.error("Stack:", error instanceof Error ? error.stack : "no stack");
+    return c.json({ error: "Internal server error" }, 500);
   }
-})
+});
 ```
 
 **Step 2:** Run `wrangler tail` to see the error in real-time.
@@ -170,11 +176,11 @@ app.get('/items', async (c) => {
 
 ```typescript
 // Add logging to see exactly what query runs and what comes back
-const query = db.select().from(items).where(eq(items.userId, userId))
-console.log('Running query for userId:', userId)
+const query = db.select().from(items).where(eq(items.userId, userId));
+console.log("Running query for userId:", userId);
 
-const result = await query.all()
-console.log('Query returned', result.length, 'rows:', JSON.stringify(result))
+const result = await query.all();
+console.log("Query returned", result.length, "rows:", JSON.stringify(result));
 // Often the issue is: userId is undefined, wrong type, or the table is empty
 ```
 
@@ -217,12 +223,13 @@ invalidate the cache:
 
 ```typescript
 const createItem = useMutation({
-  mutationFn: (data) => apiFetch('/items', { method: 'POST', body: JSON.stringify(data) }),
+  mutationFn: (data) =>
+    apiFetch("/items", { method: "POST", body: JSON.stringify(data) }),
   onSuccess: () => {
     // This tells React Query: "the items list is outdated, refetch it"
-    queryClient.invalidateQueries({ queryKey: ['items'] })
+    queryClient.invalidateQueries({ queryKey: ["items"] });
   },
-})
+});
 ```
 
 ### "My deploy failed"
@@ -282,19 +289,25 @@ Install: `npm install @tanstack/react-query-devtools`
 
 ```tsx
 function ItemList() {
-  const { data, isLoading, error } = useItems()
+  const { data, isLoading, error } = useItems();
 
   // Temporary debug logging - remove before shipping!
-  console.log('[ItemList] render state:', { isLoading, error, itemCount: data?.data?.length })
+  console.log("[ItemList] render state:", {
+    isLoading,
+    error,
+    itemCount: data?.data?.length,
+  });
 
-  if (isLoading) return <p>Loading...</p>
-  if (error) return <p>Error: {error.message}</p>
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
 
   return (
     <ul>
-      {data.data.map(item => <li key={item.id}>{item.title}</li>)}
+      {data.data.map((item) => (
+        <li key={item.id}>{item.title}</li>
+      ))}
     </ul>
-  )
+  );
 }
 ```
 
@@ -307,9 +320,9 @@ function ItemList() {
 Catch ALL unhandled errors in one place:
 
 ```typescript
-import { Hono } from 'hono'
+import { Hono } from "hono";
 
-const app = new Hono()
+const app = new Hono();
 
 /**
  * Global error handler.
@@ -318,22 +331,22 @@ const app = new Hono()
  * The user never sees ugly stack traces.
  */
 app.onError((err, c) => {
-  console.error('Unhandled error:', {
+  console.error("Unhandled error:", {
     path: c.req.path,
     method: c.req.method,
     error: err.message,
     stack: err.stack,
-  })
+  });
 
   // Don't leak internal details to the client
-  return c.json({ error: 'Internal server error' }, 500)
-})
+  return c.json({ error: "Internal server error" }, 500);
+});
 
 // 404 handler - when no route matches
 app.notFound((c) => {
-  console.warn('404 Not found:', c.req.method, c.req.path)
-  return c.json({ error: `Not found: ${c.req.path}` }, 404)
-})
+  console.warn("404 Not found:", c.req.method, c.req.path);
+  return c.json({ error: `Not found: ${c.req.path}` }, 404);
+});
 ```
 
 ### Client: Error Boundaries
@@ -342,7 +355,7 @@ Catch React rendering errors so the whole app doesn't crash:
 
 ```tsx
 // components/ErrorBoundary.tsx
-import { Component } from 'react'
+import { Component } from "react";
 
 /**
  * Wraps a section of UI. If anything inside throws during render,
@@ -352,26 +365,28 @@ class ErrorBoundary extends Component<
   { children: React.ReactNode; fallback?: React.ReactNode },
   { hasError: boolean; error?: Error }
 > {
-  state = { hasError: false, error: undefined as Error | undefined }
+  state = { hasError: false, error: undefined as Error | undefined };
 
   static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('React error boundary caught:', error, info.componentStack)
+    console.error("React error boundary caught:", error, info.componentStack);
   }
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback || (
-        <div style={{ padding: 20, color: 'red' }}>
-          <h2>Something went wrong</h2>
-          <pre>{this.state.error?.message}</pre>
-        </div>
-      )
+      return (
+        this.props.fallback || (
+          <div style={{ padding: 20, color: "red" }}>
+            <h2>Something went wrong</h2>
+            <pre>{this.state.error?.message}</pre>
+          </div>
+        )
+      );
     }
-    return this.props.children
+    return this.props.children;
   }
 }
 ```
@@ -394,11 +409,11 @@ When something doesn't work, check in this order:
 
 ## Official Documentation Links
 
-| Topic | URL |
-|-------|-----|
-| Workers logging | https://developers.cloudflare.com/workers/observability/logs/ |
+| Topic                          | URL                                                                          |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| Workers logging                | https://developers.cloudflare.com/workers/observability/logs/                |
 | Real-time logs (wrangler tail) | https://developers.cloudflare.com/workers/observability/logs/real-time-logs/ |
-| Workers observability | https://developers.cloudflare.com/workers/observability/ |
-| Debugging Workers | https://developers.cloudflare.com/workers/observability/dev-tools/ |
-| Error handling | https://developers.cloudflare.com/workers/observability/errors/ |
-| React Query DevTools | https://tanstack.com/query/latest/docs/framework/react/devtools |
+| Workers observability          | https://developers.cloudflare.com/workers/observability/                     |
+| Debugging Workers              | https://developers.cloudflare.com/workers/observability/dev-tools/           |
+| Error handling                 | https://developers.cloudflare.com/workers/observability/errors/              |
+| React Query DevTools           | https://tanstack.com/query/latest/docs/framework/react/devtools              |
